@@ -1,6 +1,3 @@
-#include <stdio.h>
+#include "shiteshell.h"
 
-int main(void) {
-  printf("Hello world.");
-  return 0;
-}
+int main(void) { return run(); }
