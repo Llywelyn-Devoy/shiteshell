@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define INPUT_BUF_SIZE 4
+#define INPUT_BUF_SIZE 512
 
 void display_prompt() { printf("> "); }
 
