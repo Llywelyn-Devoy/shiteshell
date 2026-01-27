@@ -45,16 +45,32 @@ char *get_input(char buf[], int buf_size) {
   return input;
 }
 
-char *tokenize_input(char buf[]) {
+char *token_buf[INPUT_BUF_SIZE] = {0};
+
+void clear_token_buf() {
+  for (int i = 0; i < INPUT_BUF_SIZE; i++) {
+    token_buf[i] = NULL;
+  }
+}
+
+/*Tokenizes the user inputs by the following characters  " \t>|<&;"
+ * and returns a null terminated array of string slices from the input buffer.
+ *
+ * */
+char **tokenize_input(char buf[]) {
+  clear_token_buf();
+
   const char *delims = " \t>|<&;";
   char *token = strtok(buf, delims);
-  printf("tok: \"%s\"\n", token);
+  int token_idx = 0;
   while (token) {
+    assert(token_idx < INPUT_BUF_SIZE);
+    if (token)
+      token_buf[token_idx++] = token;
     token = strtok(NULL, delims);
-    printf("tok: \"%s\"\n", token);
   }
 
-  return buf;
+  return token_buf;
 }
 
 char input_buf[INPUT_BUF_SIZE] = {0};
@@ -75,13 +91,18 @@ int run() {
     // DONE: read
     char *input = get_input(input_buf, sizeof(input_buf));
 
-    // handle internal command
+    // DONE: handle internal command
     bool exit = input == NULL || strcmp("exit", input) == 0;
     if (exit)
       break;
 
-    // TODO: parse the user input
-    tokenize_input(input);
+    // DONE: parse the user input
+    char **tokens = tokenize_input(input);
+	for(int i = 0;; i++) {
+		if(tokens[i] == NULL)
+			break;
+		printf("%s\n", tokens[i]);
+	}
 
     // TODO: execute command
   }
@@ -90,3 +111,37 @@ int run() {
   // TODO: restore the original path
   return 0;
 }
+
+// dump, (don't look)
+/*
+char *trim_by_delims(char *str, char *delims) {
+        // find the "true" start of the
+        //
+        // ";;;hello;;;\0"
+        //     ^   ^
+
+        char *true_str_cursor = str;
+        char *cursor = str;
+        while(*cursor) {
+                // check if cursor is one of the delims
+                bool is_delim = false;
+                char *delim_cursor = delims;
+                while(*delim_cursor) {
+                        if(*cursor == *delim_cursor) {
+                                is_delim = true;
+                                break;
+                        }
+                }
+                if(is_delim) {
+                        *cursor = '\0';
+                        cursor++;
+                        continue;
+                }
+
+                if(!str_start) {
+                        str_start = cursor;
+                }
+        }
+
+}
+*/
