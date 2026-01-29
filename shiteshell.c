@@ -163,8 +163,6 @@ void change_directory(char *new_path) {
  * */
 int run() {
   // TODO: save the current path
-  char prelude_path[PATH_LIMIT] = {0};
-  getcwd(prelude_path, sizeof(prelude_path));
 
   // DONE: find the user home directory from the environment
   char *home_path = getenv("HOME");
@@ -211,9 +209,6 @@ int run() {
   // TODO: save aliases
   // TODO: restore the original path
   printf("\n");
-
-  printf("Setting path back to \"%s\"\n", prelude_path);
-  change_directory(prelude_path);
 
   printf("Exiting normally...\n");
   return 0;
