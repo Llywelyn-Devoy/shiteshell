@@ -10,6 +10,7 @@
 
 #define STR_EQ(a, b) (0 == strcmp(a, b))
 #define INPUT_BUF_SIZE 512
+#define PATH_LIMIT 256 // TODO: find out the path limit on linux
 
 void display_prompt() { printf("> "); }
 
@@ -144,13 +145,32 @@ void execute_command(char *const tokens[]) {
   exec(tokens[0], tokens);
 }
 
+void change_directory(char *new_path) {
+  int err = chdir(new_path);
+  if (err) { // NOTE: we crash for now, maybe we just want to continue without
+             // going to user home?
+    if (errno == ENOENT) // invalid path
+      fprintf(stderr, "ERROR: couldn't change directory, invalid path \"%s\".",
+              new_path);
+    else
+      fprintf(stderr, "ERROR: %s\n", strerror(errno));
+    exit(errno);
+  }
+}
+
 /**
  * Run the shell.
  * */
 int run() {
-  // TODO: find the user home directory from the environment
-  // TODO: set current working directory to the user home directory
   // TODO: save the current path
+  char prelude_path[PATH_LIMIT] = {0};
+  getcwd(prelude_path, sizeof(prelude_path));
+
+  // DONE: find the user home directory from the environment
+  char *home_path = getenv("HOME");
+  // DONE: set current working directory to the user home directory
+  change_directory(home_path);
+
   // TODO: load history
   // TODO: load aliases
 
@@ -190,5 +210,11 @@ int run() {
   // TODO: save history
   // TODO: save aliases
   // TODO: restore the original path
+  printf("\n");
+
+  printf("Setting path back to \"%s\"\n", prelude_path);
+  change_directory(prelude_path);
+
+  printf("Exiting normally...\n");
   return 0;
 }
