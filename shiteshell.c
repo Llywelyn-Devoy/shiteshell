@@ -109,7 +109,15 @@ char **tokenize_input(char buf[], char *token_buf[]) {
 }
 
 void getpath(char *const argv[]) {
-  printf("getpath\n");
+  const char *const name = argv[0];
+  if (argv[1]) {
+    fprintf(stderr, "ERROR: `%s` expects no arguments.\n", name);
+    return;
+  }
+
+  const char *path = getenv("PATH");
+  assert(path);
+  printf("%s\n", path);
   return;
 }
 
@@ -168,7 +176,7 @@ Command INTERNAL_COMMANDS[] = {
  * @return true if successfully ran the internal command, otherwise false.
  * */
 bool try_run_internal_command(char *const name, char *const argv[]) {
-  argv = NULL;
+  assert(argv);
   for (int i = 0; i < ARRAY_LEN(INTERNAL_COMMANDS); i++) {
     const Command cmd = INTERNAL_COMMANDS[i];
     if (STR_EQ(name, cmd.name)) {
