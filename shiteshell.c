@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>  // for filestystem stats
 #include <sys/types.h> // pid_t datatype
 #include <sys/wait.h>  // wait
 #include <unistd.h>    // fork, execl
@@ -12,6 +13,7 @@
 #define ARRAY_LEN(arr) ((int)(sizeof(arr) / sizeof(arr[0])))
 #define INPUT_BUF_SIZE 512
 #define PATH_LIMIT 256 // TODO: find out the path limit on linux
+#define ENV_PATH "PATH"
 
 void display_prompt() { printf("> "); }
 
@@ -115,14 +117,65 @@ void getpath(char *const argv[]) {
     return;
   }
 
-  const char *path = getenv("PATH");
+  const char *path = getenv(ENV_PATH);
   assert(path);
   printf("%s\n", path);
   return;
 }
 
+bool directory_exists(const char *dir_path) {
+  struct stat dir_stat = {0};
+  if (0 == stat(dir_path, &dir_stat))
+    return dir_stat.st_mode & S_IFDIR;
+  else
+    return false;
+}
+
+/**
+ * Checks if a colon-separated path list is valid. The list is valid if
+ * all of the paths within it are valid directories.
+ *
+ * @param path, colon-separated list of paths
+ * @param path_len, the length of the path str
+ * @return `true` if the path list is valid, `false` otherwise.
+ * */
+bool is_valid_path(const char *path, int path_len) {
+  // duplicate the path as to not overwrite it
+  char path_dup[path_len + 1];
+  memcpy(path_dup, path, sizeof(path_dup));
+  char delim[] = ":";
+  char *dir_path = strtok(path_dup, delim);
+  while (dir_path) {
+    if (!directory_exists(dir_path))
+      // TODO: return this invalid path, so that we can be more specific to the
+      // user about the issue.
+      return false;
+    dir_path = strtok(NULL, delim);
+  }
+  return true;
+}
 void setpath(char *const argv[]) {
-  printf("setpath\n");
+  const char *const name = argv[0];
+  if (!argv[1] || argv[2]) {
+    fprintf(stderr,
+            "ERROR: Invalid arguments. "
+            "`%s` expects one argument; a colon-separated list to set the path "
+            "to.\n",
+            name);
+    return;
+  }
+
+  char *new_path = argv[1];
+  if (!is_valid_path(new_path, strlen(new_path))) {
+    fprintf(stderr, "ERROR: path provided is invalid. It must be "
+                    "colon-separated and all paths within must be valid.\n");
+    return;
+  }
+
+  int err = setenv(ENV_PATH, new_path, true);
+  assert(!err);
+
+  printf("\"%s\" has been set.\n", ENV_PATH);
   return;
 }
 
