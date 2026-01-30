@@ -9,6 +9,7 @@
 #include <unistd.h>    // fork, execl
 
 #define STR_EQ(a, b) (0 == strcmp(a, b))
+#define ARRAY_LEN(arr) ((int)(sizeof(arr) / sizeof(arr[0])))
 #define INPUT_BUF_SIZE 512
 #define PATH_LIMIT 256 // TODO: find out the path limit on linux
 
@@ -107,7 +108,17 @@ char **tokenize_input(char buf[], char *token_buf[]) {
   return token_buf;
 }
 
-void exec(char *filename, char *const argv[]) {
+void getpath(char *const argv[]) {
+  printf("getpath\n");
+  return;
+}
+
+void setpath(char *const argv[]) {
+  printf("setpath\n");
+  return;
+}
+
+void exec(const char *filename, char *const argv[]) {
   assert(filename);
   assert(argv);
   pid_t p = fork();
@@ -138,10 +149,42 @@ void exec(char *filename, char *const argv[]) {
   }
 }
 
+typedef struct {
+  char *name;
+  void (*action)(char *const[]);
+} Command;
+Command INTERNAL_COMMANDS[] = {
+    {"getpath", &getpath},
+    {"setpath", &setpath},
+};
+
+/**
+ * Tries to run the specified internal command, returning whether or not it was
+ * successful.
+ *
+ * @param name, the name of the internal command to try and run.
+ * @param argv, the arguments, _including_the_internal_commmand name_ to pass to
+ * the internal command.
+ * @return true if successfully ran the internal command, otherwise false.
+ * */
+bool try_run_internal_command(char *const name, char *const argv[]) {
+  argv = NULL;
+  for (int i = 0; i < ARRAY_LEN(INTERNAL_COMMANDS); i++) {
+    const Command cmd = INTERNAL_COMMANDS[i];
+    if (STR_EQ(name, cmd.name)) {
+      cmd.action(argv);
+      return true;
+    }
+  }
+  return false;
+}
+
 void execute_command(char *const tokens[]) {
-  if (!*tokens)
+  assert(*tokens);
+
+  if (try_run_internal_command(tokens[0], tokens))
     return;
-  // TODO: Check if the command is an alias
+
   exec(tokens[0], tokens);
 }
 
@@ -186,30 +229,28 @@ int run() {
     // TODO: handle CTRL+C for cancelling child process
     char *input = get_input(input_buf, sizeof(input_buf));
 
-    // DONE: handle internal command
-    // Special case for exiting the shell.
-    const bool exit = input == NULL || STR_EQ("exit", input);
-    if (exit)
+    // NOTE: special case for CTRL+D
+    if (!input)
       break;
 
     // DONE: parse the user input
     char **tokens = tokenize_input(input, token_buf);
-    if (*tokens == NULL)
+    if (!tokens[0])
       continue;
+
+    // TODO: resolve aliases
+
+    // NOTE: special case handle internal command exit
+    if (STR_EQ("exit", tokens[0]) && !tokens[1])
+      break;
 
     // TODO: execute command
     execute_command(tokens);
-    // for (int i = 0;; i++) {
-    //   if (tokens[i] == NULL)
-    //     break;
-    //   printf("%s\n", tokens[i]);
-    // }
   }
   // TODO: save history
   // TODO: save aliases
   // TODO: restore the original path
-  printf("\n");
 
-  printf("Exiting normally...\n");
+  printf("\nExiting normally...\n");
   return 0;
 }
