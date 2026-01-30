@@ -266,7 +266,9 @@ void change_directory(char *new_path) {
  * Run the shell.
  * */
 int run() {
-  // TODO: save the current path
+  // DONE: save the current path
+  char *prelude_path = getenv(ENV_PATH);
+  assert(prelude_path);
 
   // DONE: find the user home directory from the environment
   char *home_path = getenv("HOME");
@@ -310,8 +312,14 @@ int run() {
   }
   // TODO: save history
   // TODO: save aliases
-  // TODO: restore the original path
+  // DONE: restore the original path
+  printf("\n");
+  printf("Restoring original path...\n");
+  int err = setenv(ENV_PATH, prelude_path, true);
+  assert(!err);
+  printf("Path restored to:\n");
+  printf("\"%s\"\n", prelude_path);
 
-  printf("\nExiting normally...\n");
+  printf("Exiting normally...\n");
   return 0;
 }
