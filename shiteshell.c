@@ -1,33 +1,19 @@
+#include "commands.h"
+#include "io.h"
+#include "shared.h"
 #include <assert.h>
 #include <errno.h> // errno
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>  // for filestystem stats
 #include <sys/types.h> // pid_t datatype
 #include <sys/wait.h>  // wait
 #include <unistd.h>    // fork, execl
 
-#define STR_EQ(a, b) (0 == strcmp(a, b))
-#define ARRAY_LEN(arr) ((int)(sizeof(arr) / sizeof(arr[0])))
-#define INPUT_BUF_SIZE 512
 #define PATH_LIMIT 256 // TODO: find out the path limit on linux
-#define ENV_PATH "PATH"
 
 void display_prompt() { printf("> "); }
-
-/**
- * Clear the stdin buffer
- */
-void clear_stdin() {
-  while (true) {
-    int c = fgetc(stdin);
-    if (c == '\n' || c == EOF)
-      // we've cleared the input buffer
-      return;
-  }
-}
 
 /**
  * Reads the user input from stdin and writes into the supplied buffer
@@ -102,81 +88,12 @@ char **tokenize_input(char buf[], char *token_buf[]) {
   char *token = strtok(buf, delims);
   int token_idx = 0;
   while (token) {
-    assert(token_idx < INPUT_BUF_SIZE); // sanity check
+    assert(token_idx < MAX_COMMAND_SIZE); // sanity check
     token_buf[token_idx++] = token;
     token = strtok(NULL, delims);
   }
 
   return token_buf;
-}
-
-void getpath(char *const argv[]) {
-  const char *const name = argv[0];
-  if (argv[1]) {
-    fprintf(stderr, "ERROR: `%s` expects no arguments.\n", name);
-    return;
-  }
-
-  const char *path = getenv(ENV_PATH);
-  assert(path);
-  printf("%s\n", path);
-  return;
-}
-
-bool directory_exists(const char *dir_path) {
-  struct stat dir_stat = {0};
-  if (0 == stat(dir_path, &dir_stat))
-    return dir_stat.st_mode & S_IFDIR;
-  else
-    return false;
-}
-
-/**
- * Checks if a colon-separated path list is valid. The list is valid if
- * all of the paths within it are valid directories.
- *
- * @param path, colon-separated list of paths
- * @param path_len, the length of the path str
- * @return `true` if the path list is valid, `false` otherwise.
- * */
-bool is_valid_path(const char *path, int path_len) {
-  // duplicate the path as to not overwrite it
-  char path_dup[path_len + 1];
-  memcpy(path_dup, path, sizeof(path_dup));
-  char delim[] = ":";
-  char *dir_path = strtok(path_dup, delim);
-  while (dir_path) {
-    if (!directory_exists(dir_path))
-      // TODO: return this invalid path, so that we can be more specific to the
-      // user about the issue.
-      return false;
-    dir_path = strtok(NULL, delim);
-  }
-  return true;
-}
-void setpath(char *const argv[]) {
-  const char *const name = argv[0];
-  if (!argv[1] || argv[2]) {
-    fprintf(stderr,
-            "ERROR: Invalid arguments. "
-            "`%s` expects one argument; a colon-separated list to set the path "
-            "to.\n",
-            name);
-    return;
-  }
-
-  char *new_path = argv[1];
-  if (!is_valid_path(new_path, strlen(new_path))) {
-    fprintf(stderr, "ERROR: path provided is invalid. It must be "
-                    "colon-separated and all paths within must be valid.\n");
-    return;
-  }
-
-  int err = setenv(ENV_PATH, new_path, true);
-  assert(!err);
-
-  printf("\"%s\" has been set.\n", ENV_PATH);
-  return;
 }
 
 void exec(const char *filename, char *const argv[]) {
@@ -208,36 +125,6 @@ void exec(const char *filename, char *const argv[]) {
     fprintf(stderr, "ERROR: Failed to fork current process!\n");
     fprintf(stderr, "\t%s", strerror(errno));
   }
-}
-
-typedef struct {
-  char *name;
-  void (*action)(char *const[]);
-} Command;
-Command INTERNAL_COMMANDS[] = {
-    {"getpath", &getpath},
-    {"setpath", &setpath},
-};
-
-/**
- * Tries to run the specified internal command, returning whether or not it was
- * successful.
- *
- * @param name, the name of the internal command to try and run.
- * @param argv, the arguments, _including_the_internal_commmand name_ to pass to
- * the internal command.
- * @return true if successfully ran the internal command, otherwise false.
- * */
-bool try_run_internal_command(char *const name, char *const argv[]) {
-  assert(argv);
-  for (int i = 0; i < ARRAY_LEN(INTERNAL_COMMANDS); i++) {
-    const Command cmd = INTERNAL_COMMANDS[i];
-    if (STR_EQ(name, cmd.name)) {
-      cmd.action(argv);
-      return true;
-    }
-  }
-  return false;
 }
 
 void execute_command(char *const tokens[]) {
@@ -278,11 +165,11 @@ int run() {
   // TODO: load history
   // TODO: load aliases
 
-  char input_buf[INPUT_BUF_SIZE] = {0};
+  char input_buf[MAX_COMMAND_SIZE] = {0};
 
   // NOTE: we set the token_buf to the size of the input buf since it guarantees
   // we'll never run out of space in the token buffer.
-  char *token_buf[INPUT_BUF_SIZE] = {0};
+  char *token_buf[MAX_COMMAND_SIZE] = {0};
 
   while (true) {
     // DONE: display the prompt
