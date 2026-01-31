@@ -85,7 +85,7 @@ void cmd_change_dir(char *const argv[]) {
     change_directory(path);
   } else {
     // default to user home
-    change_directory(getenv(ENV_HOME));
+    change_directory("~");
   }
 }
 

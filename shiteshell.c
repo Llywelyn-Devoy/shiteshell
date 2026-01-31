@@ -146,7 +146,7 @@ int run() {
 
   // DONE: find the user home directory from the environment
   // DONE: set current working directory to the user home directory
-  change_directory(getenv(ENV_HOME));
+  change_directory("~");
 
   // TODO: load history
   // TODO: load aliases
