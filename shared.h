@@ -1,10 +1,27 @@
 #include <string.h>
 
 #define STR_EQ(a, b) (0 == strcmp(a, b))
+#define STR_STARTSWITH(str, prefix) (0 == strncmp(str, prefix, strlen(prefix)))
 #define ARRAY_LEN(arr) ((int)(sizeof(arr) / sizeof(arr[0])))
 #define ENV_PATH "PATH"
 #define ENV_HOME "HOME"
 
 #define MAX_COMMAND_SIZE 512
 
+/*
+ * Free and set to
+ * null.
+ *
+ * @param ptr, the
+ * pointer to free and
+ * set to null.
+ * */
+void shite_free(void **ptr);
+
+/*
+ * Changes directory, handling the errors and printing them to stderr.
+ * Resolves '~' to the user home directory.
+ *
+ * @param new_path, path to change to.
+ * */
 void change_directory(const char *new_path);
