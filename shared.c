@@ -65,29 +65,29 @@ void change_directory(const char *new_path) {
   // resolve '~' into the current users home directory. For now we'll just
   // handle it here.
   const char *resolved = resolve_tilde(new_path);
-  if (resolved)
-    new_path = resolved;
+  // NOTE: we need to make sure we free the resolved path
+  DEFER(shite_free((void **)&resolved)) {
+    if (resolved)
+      new_path = resolved;
 
-  int err = chdir(new_path);
-  if (err) {
-    // `man chdir` for the errors
-    switch (errno) {
-    case EACCES:       // perms issue
-    case ENAMETOOLONG: // path too long; no need to brag.
-    case ENOTDIR:      // a path component is not a dir
-    case ENOENT:       // path doesn't point to a dir
-      fprintf(stderr, "ERROR: %s.\n", strerror(errno));
-      break;
-    default: // more obscure errors so we'll just crash. It's called shiteshell
-             // for a reason after all.
-      fprintf(stderr, "ERROR: %s.\n", strerror(errno));
-      // TODO: how do we crash safely here? We need to save history and aliases
-      // for instance. Worth asking the helper?
-      exit(errno);
-      break;
+    int err = chdir(new_path);
+    if (err) {
+      // `man chdir` for the errors
+      switch (errno) {
+      case EACCES:       // perms issue
+      case ENAMETOOLONG: // path too long; no need to brag.
+      case ENOTDIR:      // a path component is not a dir
+      case ENOENT:       // path doesn't point to a dir
+        fprintf(stderr, "ERROR: %s.\n", strerror(errno));
+        break;
+      default: // more obscure errors so we'll just crash. It's called
+               // shiteshell for a reason after all.
+        fprintf(stderr, "ERROR: %s.\n", strerror(errno));
+        // TODO: how do we crash safely here? We need to save history and
+        // aliases for instance. Worth asking the helper?
+        exit(errno);
+        break;
+      }
     }
   }
-
-  // NOTE: we need to make sure we free the resolved path
-  shite_free((void **)&resolved);
 }

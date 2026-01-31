@@ -1,5 +1,7 @@
 #include <string.h>
 
+#define DEFER(cleanup_func)                                                    \
+  for (int __done__ = 0; !__done__; (cleanup_func), __done__ = 1)
 #define STR_EQ(a, b) (0 == strcmp(a, b))
 #define STR_STARTSWITH(str, prefix) (0 == strncmp(str, prefix, strlen(prefix)))
 #define ARRAY_LEN(arr) ((int)(sizeof(arr) / sizeof(arr[0])))
