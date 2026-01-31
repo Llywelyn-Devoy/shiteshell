@@ -136,19 +136,6 @@ void execute_command(char *const tokens[]) {
   exec(tokens[0], tokens);
 }
 
-void change_directory(char *new_path) {
-  int err = chdir(new_path);
-  if (err) { // NOTE: we crash for now, maybe we just want to continue without
-             // going to user home?
-    if (errno == ENOENT) // invalid path
-      fprintf(stderr, "ERROR: couldn't change directory, invalid path \"%s\".",
-              new_path);
-    else
-      fprintf(stderr, "ERROR: %s\n", strerror(errno));
-    exit(errno);
-  }
-}
-
 /**
  * Run the shell.
  * */
@@ -158,9 +145,8 @@ int run() {
   assert(prelude_path);
 
   // DONE: find the user home directory from the environment
-  char *home_path = getenv("HOME");
   // DONE: set current working directory to the user home directory
-  change_directory(home_path);
+  change_directory(getenv(ENV_HOME));
 
   // TODO: load history
   // TODO: load aliases

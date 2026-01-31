@@ -30,7 +30,7 @@ bool is_valid_path(const char *path, int path_len) {
   return true;
 }
 
-void getpath(char *const argv[]) {
+void cmd_getpath(char *const argv[]) {
   const char *const name = argv[0];
   if (argv[1]) {
     fprintf(stderr, "ERROR: `%s` expects no arguments.\n", name);
@@ -43,7 +43,7 @@ void getpath(char *const argv[]) {
   return;
 }
 
-void setpath(char *const argv[]) {
+void cmd_setpath(char *const argv[]) {
   const char *const name = argv[0];
   if (!argv[1] || argv[2]) {
     fprintf(stderr,
@@ -68,13 +68,35 @@ void setpath(char *const argv[]) {
   return;
 }
 
+void cmd_change_dir(char *const argv[]) {
+  const char *name = argv[0];
+  const char *path = argv[1];
+  const char *null = argv[2];
+  assert(name);
+  if (null != NULL) {
+    fprintf(stderr,
+            "ERROR: invalid arguments."
+            "`%s` requires one optional argument for the path to change to.\n",
+            name);
+    return;
+  }
+
+  if (path) {
+    change_directory(path);
+  } else {
+    // default to user home
+    change_directory(getenv(ENV_HOME));
+  }
+}
+
 typedef struct {
   char *name;
   void (*action)(char *const[]);
 } Command;
 Command INTERNAL_COMMANDS[] = {
-    {"getpath", &getpath},
-    {"setpath", &setpath},
+    {"getpath", &cmd_getpath},
+    {"setpath", &cmd_setpath},
+    {"cd", &cmd_change_dir},
 };
 
 /**
