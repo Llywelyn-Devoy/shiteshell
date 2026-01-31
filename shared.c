@@ -7,14 +7,22 @@
 
 void change_directory(const char *new_path) {
   int err = chdir(new_path);
-  if (err) { // NOTE: we crash for now, maybe we just want to continue without
-             // going to user home?
-    if (errno == ENOENT) // invalid path
-      fprintf(stderr,
-              "ERROR: couldn't change directory, invalid path \"%s\"\n.",
-              new_path);
-    else
-      fprintf(stderr, "ERROR: %s\n", strerror(errno));
-    exit(errno);
+  if (err) {
+    // `man chdir` for the errors
+    switch (errno) {
+    case EACCES:       // perms issue
+    case ENAMETOOLONG: // path too long; no need to brag.
+    case ENOTDIR:      // a path component is not a dir
+    case ENOENT:       // path doesn't point to a dir
+      fprintf(stderr, "ERROR: %s.\n", strerror(errno));
+      break;
+    default: // more obscure errors so we'll just crash. It's called shiteshell
+             // for a reason after all.
+      fprintf(stderr, "ERROR: %s.\n", strerror(errno));
+      // TODO: how do we crash safely here? We need to save history and aliases
+      // for instance. Worth asking the helper?
+      exit(errno);
+      break;
+    }
   }
 }
