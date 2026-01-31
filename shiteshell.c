@@ -1,3 +1,6 @@
+#include "commands.h"
+#include "io.h"
+#include "shared.h"
 #include <assert.h>
 #include <errno.h> // errno
 #include <stdbool.h>
@@ -8,22 +11,9 @@
 #include <sys/wait.h>  // wait
 #include <unistd.h>    // fork, execl
 
-#define STR_EQ(a, b) (0 == strcmp(a, b))
-#define INPUT_BUF_SIZE 512
+#define PATH_LIMIT 256 // TODO: find out the path limit on linux
 
 void display_prompt() { printf("> "); }
-
-/**
- * Clear the stdin buffer
- */
-void clear_stdin() {
-  while (true) {
-    int c = fgetc(stdin);
-    if (c == '\n' || c == EOF)
-      // we've cleared the input buffer
-      return;
-  }
-}
 
 /**
  * Reads the user input from stdin and writes into the supplied buffer
@@ -98,7 +88,7 @@ char **tokenize_input(char buf[], char *token_buf[]) {
   char *token = strtok(buf, delims);
   int token_idx = 0;
   while (token) {
-    assert(token_idx < INPUT_BUF_SIZE); // sanity check
+    assert(token_idx < MAX_COMMAND_SIZE); // sanity check
     token_buf[token_idx++] = token;
     token = strtok(NULL, delims);
   }
@@ -106,7 +96,7 @@ char **tokenize_input(char buf[], char *token_buf[]) {
   return token_buf;
 }
 
-void exec(char *filename, char *const argv[]) {
+void exec(const char *filename, char *const argv[]) {
   assert(filename);
   assert(argv);
   pid_t p = fork();
@@ -138,9 +128,11 @@ void exec(char *filename, char *const argv[]) {
 }
 
 void execute_command(char *const tokens[]) {
-  if (!*tokens)
+  assert(*tokens);
+
+  if (try_run_internal_command(tokens[0], tokens))
     return;
-  // TODO: Check if the command is an alias
+
   exec(tokens[0], tokens);
 }
 
@@ -148,17 +140,22 @@ void execute_command(char *const tokens[]) {
  * Run the shell.
  * */
 int run() {
-  // TODO: find the user home directory from the environment
-  // TODO: set current working directory to the user home directory
-  // TODO: save the current path
+  // DONE: save the current path
+  char *prelude_path = getenv(ENV_PATH);
+  assert(prelude_path);
+
+  // DONE: find the user home directory from the environment
+  // DONE: set current working directory to the user home directory
+  change_directory("~");
+
   // TODO: load history
   // TODO: load aliases
 
-  char input_buf[INPUT_BUF_SIZE] = {0};
+  char input_buf[MAX_COMMAND_SIZE] = {0};
 
   // NOTE: we set the token_buf to the size of the input buf since it guarantees
   // we'll never run out of space in the token buffer.
-  char *token_buf[INPUT_BUF_SIZE] = {0};
+  char *token_buf[MAX_COMMAND_SIZE] = {0};
 
   while (true) {
     // DONE: display the prompt
@@ -168,27 +165,34 @@ int run() {
     // TODO: handle CTRL+C for cancelling child process
     char *input = get_input(input_buf, sizeof(input_buf));
 
-    // DONE: handle internal command
-    // Special case for exiting the shell.
-    const bool exit = input == NULL || STR_EQ("exit", input);
-    if (exit)
+    // NOTE: special case for CTRL+D
+    if (!input)
       break;
 
     // DONE: parse the user input
     char **tokens = tokenize_input(input, token_buf);
-    if (*tokens == NULL)
+    if (!tokens[0])
       continue;
+
+    // TODO: resolve aliases
+
+    // NOTE: special case handle internal command exit
+    if (STR_EQ("exit", tokens[0]) && !tokens[1])
+      break;
 
     // TODO: execute command
     execute_command(tokens);
-    // for (int i = 0;; i++) {
-    //   if (tokens[i] == NULL)
-    //     break;
-    //   printf("%s\n", tokens[i]);
-    // }
   }
   // TODO: save history
   // TODO: save aliases
-  // TODO: restore the original path
+  // DONE: restore the original path
+  printf("\n");
+  printf("Restoring original path...\n");
+  int err = setenv(ENV_PATH, prelude_path, true);
+  assert(!err);
+  printf("Path restored to:\n");
+  printf("\"%s\"\n", prelude_path);
+
+  printf("Exiting normally...\n");
   return 0;
 }
