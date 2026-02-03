@@ -4,6 +4,7 @@
 
 bool directory_exists(const char *dir_path);
 
+void load_file(char* path_to_file);
 /**
  * Clear the stdin buffer
  */

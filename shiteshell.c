@@ -10,8 +10,10 @@
 #include <sys/types.h> // pid_t datatype
 #include <sys/wait.h>  // wait
 #include <unistd.h>    // fork, execl
+#include "history.h"
 
-#define PATH_LIMIT 256 // TODO: find out the path limit on linux
+#define PATH_LIMIT 4096 // TODO: find out the path limit on linux
+// The maximum path length is 4096 characters.
 
 void display_prompt() { printf("> "); }
 
@@ -136,6 +138,8 @@ void execute_command(char *const tokens[]) {
   exec(tokens[0], tokens);
 }
 
+//char** history[20];
+
 /**
  * Run the shell.
  * */
@@ -180,6 +184,8 @@ int run() {
     if (STR_EQ("exit", tokens[0]) && !tokens[1])
       break;
 
+    
+    
     // TODO: execute command
     execute_command(tokens);
   }
