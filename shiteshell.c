@@ -138,7 +138,6 @@ void execute_command(char *const tokens[]) {
   exec(tokens[0], tokens);
 }
 
-//char** history[20];
 
 /**
  * Run the shell.
@@ -153,6 +152,9 @@ int run() {
   change_directory("~");
 
   // TODO: load history
+  struct history_arr history;
+  create_history(&history);
+
   // TODO: load aliases
 
   char input_buf[MAX_COMMAND_SIZE] = {0};
@@ -173,10 +175,38 @@ int run() {
     if (!input)
       break;
 
-    // DONE: parse the user input
-    char **tokens = tokenize_input(input, token_buf);
-    if (!tokens[0])
+    // Skip empty input
+    if (input[0] == '\0')
       continue;
+
+    char *command_to_process = input;
+    char history_expanded_buf[MAX_COMMAND_SIZE] = {0};
+    char *tokens[MAX_COMMAND_SIZE] = {0};
+
+    //load history command if input is history invoke
+    if (input[0] == '!') {
+      char *loaded = load_history_command(&history, history_expanded_buf, input);
+      if (!loaded)  {      
+        continue;
+      }
+      
+      printf("%s\n", loaded);
+      command_to_process = loaded;
+    }
+    //command is not history invoke
+    else {
+      add_command_to_history(&history, input);
+    }
+
+    tokenize_input(command_to_process, tokens);
+    if (!tokens[0]) 
+      continue;
+
+    //print whole history when input is "history"
+    if (STR_EQ("history", tokens[0]) && !tokens[1]){
+      print_commands(&history);
+      continue;
+    }
 
     // TODO: resolve aliases
 
@@ -184,11 +214,10 @@ int run() {
     if (STR_EQ("exit", tokens[0]) && !tokens[1])
       break;
 
-    
-    
     // TODO: execute command
     execute_command(tokens);
   }
+  
   // TODO: save history
   // TODO: save aliases
   // DONE: restore the original path
@@ -200,5 +229,10 @@ int run() {
   printf("\"%s\"\n", prelude_path);
 
   printf("Exiting normally...\n");
+
+  for(int i=0; i<HIST_SIZE; i++) {
+        if(history.commands[i]) free(history.commands[i]);
+    }
+
   return 0;
 }
