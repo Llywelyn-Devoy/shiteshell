@@ -13,47 +13,51 @@ void create_history(struct history_arr *history) {
 }
 
 void add_command_to_history(struct history_arr* history, const char *command) {
-    int idx = history->count % HIST_SIZE;
-    free(history->commands[idx]);
-    history->commands[idx] = strdup(command);
+    int idx = history->count % HIST_SIZE;   //find the index
+    free(history->commands[idx]);   //free if old command exists in this index
+    history->commands[idx] = strdup(command);   //allocate new memory for command
     history->count++;
 }
 
 void print_commands(struct history_arr* history) {
-    int total = history->count < HIST_SIZE ? history->count : HIST_SIZE;
-    int start_num = history->count < HIST_SIZE ? 1 : history->count - HIST_SIZE + 1;
+    int total = history->count < HIST_SIZE ? history->count : HIST_SIZE; //find number of commands to print
+    int start_num = history->count < HIST_SIZE ? 1 : history->count - HIST_SIZE + 1; //find oldest command
     
     for (int i = 0; i < total; i++) {
-        int idx = (history->count - total + i) % HIST_SIZE;
-        printf("%d %s\n", start_num + i, history->commands[idx]);
+        int idx = (history->count - total + i) % HIST_SIZE; //find index of command 
+        printf("%d %s\n", start_num + i, history->commands[idx]);   //print command number and command
     }
 }
 
 const char *last_command(struct history_arr *history) {
-    if (history->count == 0)
+    if (history->count == 0)    //if history is empty return null
         return NULL;
-    return history->commands[(history->count - 1) % HIST_SIZE];
+    //last command is always at index count - 1 % 20
+    return history->commands[(history->count - 1) % HIST_SIZE]; 
 }
 
- //print last command "!!" or command number "!no" "!-no"
+ //logic for commands starting with !
 char *load_history_command(struct history_arr *history, char *dest_buf, const char *input_buf)
 {
+    //pointer sanity check 
     if (!history || !dest_buf || !input_buf)
         return NULL;
 
+    //pointer for found command
     const char *cmd = NULL;
 
-    // !!
+    // !! - return last command
     if (strcmp(input_buf, "!!") == 0) {
         cmd = last_command(history);
         if (!cmd) {
-            printf("No commands in history.\n");
+            printf("history is empty.\n");
             return NULL;
         }
     }
-    // !N
+    // !N - command with number N
     else if (input_buf[0] == '!' && input_buf[1] != '-') {
-        int n = atoi(input_buf + 1);
+        int n = atoi(input_buf + 1); //convert input string to int
+        //making sure that command index is within history count
         if (n <= 0 || n > history->count) {
             printf("No such command in history.\n");
             return NULL;
@@ -61,7 +65,7 @@ char *load_history_command(struct history_arr *history, char *dest_buf, const ch
         int idx = (n - 1) % HIST_SIZE; //find right index
         if (history->count > HIST_SIZE) {
             int oldest_cmd_num = history->count - HIST_SIZE + 1;
-            if (n < oldest_cmd_num) {
+            if (n < oldest_cmd_num) {   //this means command was overwritten
                 printf("No such command in history.\n");
                 return NULL;
             }
@@ -69,14 +73,14 @@ char *load_history_command(struct history_arr *history, char *dest_buf, const ch
         }
         cmd = history->commands[idx];
     }
-    // !-N
+    // !-N - command with number history->count - N
     else if (strncmp(input_buf, "!-", 2) == 0) {
-        int offset = atoi(input_buf + 2);
-        if (offset <= 0 || offset > history->count) {
+        int offset = atoi(input_buf + 2); //string input to int
+        if (offset <= 0 || offset > history->count) { // make sure input is within history
             printf("No such command in history.\n");
             return NULL;
         }
-        int target = history->count - offset;
+        int target = history->count - offset; //find target command number
         if (target < 0) {
             printf("No such command in history.\n");
             return NULL;
@@ -92,8 +96,8 @@ char *load_history_command(struct history_arr *history, char *dest_buf, const ch
         return NULL;
     }
 
-    strncpy(dest_buf, cmd, MAX_COMMAND_SIZE - 1);
-    dest_buf[MAX_COMMAND_SIZE - 1] = '\0';
+    strncpy(dest_buf, cmd, MAX_COMMAND_SIZE - 1); //copy command to destination buffer
+    dest_buf[MAX_COMMAND_SIZE - 1] = '\0';  //null terminator
     return dest_buf;
 }
 

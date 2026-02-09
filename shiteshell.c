@@ -151,7 +151,7 @@ int run() {
   // DONE: set current working directory to the user home directory
   change_directory("~");
 
-  // TODO: load history
+  // DONE: load history
   struct history_arr history;
   create_history(&history);
 
@@ -180,7 +180,7 @@ int run() {
       continue;
 
     char *command_to_process = input;
-    char history_expanded_buf[MAX_COMMAND_SIZE] = {0};
+    char history_expanded_buf[MAX_COMMAND_SIZE] = {0};  //buffer to hold comand found in history
     char *tokens[MAX_COMMAND_SIZE] = {0};
 
     //load history command if input is history invoke
@@ -191,7 +191,7 @@ int run() {
       }
       
       printf("%s\n", loaded);
-      command_to_process = loaded;
+      command_to_process = loaded;  //update pointer to point to the history command instead of the ! string.
     }
     //command is not history invoke
     else {
