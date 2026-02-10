@@ -7,6 +7,9 @@ debug: out
 release: out
 	$(GCC) *.c -o $(OUT)/shiteshell -O2
 
+format:
+	find . -type f \( -name "*.c" -o -name "*.h" \) -exec clang-format -i {} +  
+
 .PHONY: out
 out:
 	-mkdir $(OUT)
