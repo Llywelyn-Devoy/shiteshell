@@ -12,6 +12,17 @@
 #include <unistd.h>    // fork, execl
 
 #define PATH_LIMIT 256 // TODO: find out the path limit on linux
+#define Max_alias 10
+
+typedef struct {
+  char name[64];
+  char command[MAX_COMMAND_SIZE];
+}Alias;
+
+Alias aliases [Max_alias];
+int no_alais = 0;
+
+
 
 void display_prompt() { printf("> "); }
 
@@ -51,6 +62,8 @@ char *get_input(char buf[], int buf_size) {
 
   return input;
 }
+
+
 
 /**
  * Clears the supplied null-terminated token buffer
@@ -127,11 +140,110 @@ void exec(const char *filename, char *const argv[]) {
   }
 }
 
+int wheres_my_alias (const char *name) {
+  for (int i = 0; i < no_alais; i++) {
+    if (strcmp(aliases[i].name, name) == 0)
+    return i;
+  }
+return -1;
+}
+
+bool is_there_an_alias(const char* input, int* alias_id) {
+    char first[64] = {0};
+    sscanf(input, "%63s", first);
+
+    int id = wheres_my_alias(first);
+    if(id >= 0) {
+      *alias_id = id;
+        return true;
+     }
+     return false;
+  }  
+
+void swap_alias(const char* input, char* output) {
+    int id;
+    if (!is_there_an_alias(input, &id)) {
+      strcpy(output, input);
+      return;
+   }
+
+   const char* rest = input + strlen(aliases[id].name);
+   while (*rest == ' '){
+    rest++;
+   }
+    strcpy(output, aliases[id].command);
+
+   if (*rest) {
+      strcat(output, " ");
+     strcat(output, rest);
+    }
+  }
+
+void alias_commands(char* const tokens[]) {
+
+  if (!tokens[1]) {
+    for (int i = 0; i< no_alais; i++) {
+      printf("%s='%s'\n", aliases[i].name, aliases[i].command);
+    }
+    return;
+  }
+
+  if (!tokens[2]) {
+    fprintf(stderr, "alias with no command\n");
+    return;
+  }
+
+
+const char* name = tokens[1];
+
+char command[MAX_COMMAND_SIZE] = {0};
+for (int i  = 2; tokens[i]; i++) {
+  strcat(command, tokens[i]);
+  if (tokens[i+1])
+  strcat(command, " ");
+
+}
+
+int unoriginal = wheres_my_alias(name);
+
+if (unoriginal >= 0) {
+  strcpy(aliases[unoriginal].command, command);
+} else {
+  if (no_alais >= Max_alias) {
+    fprintf(stderr, "wooh there bucko stop renaming stuff 10 max\n");
+    return;
+  }
+  strcpy(aliases[no_alais].name, name);
+  strcpy(aliases[no_alais].command, command);
+  no_alais++;
+}
+}
+
+void unalias_command(char* const tokens[]) {
+  if (!tokens[1]) {
+    fprintf(stderr,"why are you unaliasing nothing\n");
+    return;
+  }
+
+  int alias_id = wheres_my_alias(tokens[1]);
+  if (alias_id < 0) {
+    fprintf(stderr, "sorry to tell you but that alia s aint real\n");
+    return;
+  }
+
+  for(int i = alias_id; i < no_alais -1; i++) {
+    aliases[i] = aliases[i+1];
+  }
+  no_alais--;
+}
+
+
 void execute_command(char *const tokens[]) {
   assert(*tokens);
 
   if (try_run_internal_command(tokens[0], tokens))
     return;
+
 
   exec(tokens[0], tokens);
 }
@@ -157,6 +269,8 @@ int run() {
   // we'll never run out of space in the token buffer.
   char *token_buf[MAX_COMMAND_SIZE] = {0};
 
+  char cooked_buf[MAX_COMMAND_SIZE] = {0};
+
   while (true) {
     // DONE: display the prompt
     display_prompt();
@@ -169,20 +283,26 @@ int run() {
     if (!input)
       break;
 
+   swap_alias(input_buf, cooked_buf);
+
+    // DONE: resolve aliases
     // DONE: parse the user input
-    char **tokens = tokenize_input(input, token_buf);
+    char **tokens = tokenize_input(cooked_buf, token_buf);
     if (!tokens[0])
       continue;
 
-    // TODO: resolve aliases
+    
 
     // NOTE: special case handle internal command exit
     if (STR_EQ("exit", tokens[0]) && !tokens[1])
       break;
 
-    // TODO: execute command
+    // DONE: execute command
     execute_command(tokens);
   }
+
+
+
   // TODO: save history
   // TODO: save aliases
   // DONE: restore the original path

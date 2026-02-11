@@ -88,6 +88,8 @@ void cmd_change_dir(char *const argv[]) {
     change_directory("~");
   }
 }
+void alias_commands(char* const tokens[]);
+void unalias_command(char* const tokens[]);
 
 typedef struct {
   char *name;
@@ -97,6 +99,8 @@ Command INTERNAL_COMMANDS[] = {
     {"getpath", &cmd_getpath},
     {"setpath", &cmd_setpath},
     {"cd", &cmd_change_dir},
+    {"alias", alias_commands},
+    {"unalias", unalias_command},
 };
 
 /**
