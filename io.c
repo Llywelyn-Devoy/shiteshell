@@ -7,7 +7,7 @@
 bool directory_exists(const char *dir_path) {
   struct stat dir_stat = {0};
   if (0 == stat(dir_path, &dir_stat))
-    return dir_stat.st_mode & S_IFDIR;
+    return S_ISDIR(dir_stat.st_mode);
   else
     return false;
 }

@@ -19,4 +19,8 @@ void print_commands(struct history_arr *h);
 
 void add_command_to_history(struct history_arr *h, const char *command);
 
+void load_history(struct history_arr *history);
+
+void save_history(struct history_arr *history);
+
 #endif
