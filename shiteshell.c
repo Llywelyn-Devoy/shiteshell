@@ -148,19 +148,19 @@ int wheres_my_alias (const char *name) {
 return -1;
 }
 
-bool is_there_an_alias(const char* input, int* alias_id) {
+bool is_there_an_alias(const char* input, int* alias_idx) {
     char first[64] = {0};
     sscanf(input, "%63s", first);
 
     int id = wheres_my_alias(first);
     if(id >= 0) {
-      *alias_id = id;
+      *alias_idx = id;
         return true;
      }
      return false;
   }  
 
-void swap_alias(const char* input, char* output) {
+void resolve_alias(const char* input, char* output) {
     int id;
     if (!is_there_an_alias(input, &id)) {
       strcpy(output, input);
@@ -183,7 +183,7 @@ void alias_commands(char* const tokens[]) {
 
   if (!tokens[1]) {
     for (int i = 0; i< no_alais; i++) {
-      printf("%s='%s'\n", aliases[i].name, aliases[i].command);
+      printf("%s ='%s'\n", aliases[i].name, aliases[i].command);
     }
     return;
   }
@@ -204,10 +204,11 @@ for (int i  = 2; tokens[i]; i++) {
 
 }
 
-int unoriginal = wheres_my_alias(name);
+int alias_idx = wheres_my_alias(name);
 
-if (unoriginal >= 0) {
-  strcpy(aliases[unoriginal].command, command);
+if (alias_idx >= 0) {
+  printf("alias with same name as previous alias removing previous alias\n");
+  strcpy(aliases[alias_idx].command, command);
 } else {
   if (no_alais >= Max_alias) {
     fprintf(stderr, "wooh there bucko stop renaming stuff 10 max\n");
@@ -225,13 +226,13 @@ void unalias_command(char* const tokens[]) {
     return;
   }
 
-  int alias_id = wheres_my_alias(tokens[1]);
-  if (alias_id < 0) {
-    fprintf(stderr, "sorry to tell you but that alia s aint real\n");
+  int alias_idx = wheres_my_alias(tokens[1]);
+  if (alias_idx < 0) {
+    fprintf(stderr, "sorry to tell you but that alias aint real\n");
     return;
   }
 
-  for(int i = alias_id; i < no_alais -1; i++) {
+  for(int i = alias_idx; i < no_alais -1; i++) {
     aliases[i] = aliases[i+1];
   }
   no_alais--;
@@ -283,7 +284,7 @@ int run() {
     if (!input)
       break;
 
-   swap_alias(input_buf, cooked_buf);
+   resolve_alias(input_buf, cooked_buf);
 
     // DONE: resolve aliases
     // DONE: parse the user input
