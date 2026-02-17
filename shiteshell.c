@@ -14,6 +14,9 @@
 #define PATH_LIMIT 256 // TODO: find out the path limit on linux
 #define Max_alias 10
 
+#define ALIAS_COMMAND_NAME "alias"
+#define UNALIAS_COMMAND_NAME "unalias"
+
 typedef struct {
   char name[64];
   char command[MAX_COMMAND_SIZE];
@@ -180,21 +183,28 @@ void resolve_alias(const char* input, char* output) {
   }
 
 void alias_commands(char* const tokens[]) {
+  const char *cmd_name = tokens[0];
+  const char *alias_name = tokens[1];
+  char * const *rest = &tokens[2];
 
-  if (!tokens[1]) {
+  if (!alias_name) {
     for (int i = 0; i< no_alais; i++) {
       printf("%s ='%s'\n", aliases[i].name, aliases[i].command);
     }
     return;
   }
 
-  if (!tokens[2]) {
+  if(STR_EQ(ALIAS_COMMAND_NAME, alias_name) 
+    || STR_EQ(UNALIAS_COMMAND_NAME, alias_name)) {
+      fprintf(stderr, "just dont do that\n");
+      return ;
+  }
+
+  if (!rest[0]) {
     fprintf(stderr, "alias with no command\n");
     return;
   }
 
-
-const char* name = tokens[1];
 
 char command[MAX_COMMAND_SIZE] = {0};
 for (int i  = 2; tokens[i]; i++) {
@@ -204,7 +214,7 @@ for (int i  = 2; tokens[i]; i++) {
 
 }
 
-int alias_idx = wheres_my_alias(name);
+int alias_idx = wheres_my_alias(alias_name);
 
 if (alias_idx >= 0) {
   printf("alias with same name as previous alias removing previous alias\n");
@@ -214,7 +224,7 @@ if (alias_idx >= 0) {
     fprintf(stderr, "wooh there bucko stop renaming stuff 10 max\n");
     return;
   }
-  strcpy(aliases[no_alais].name, name);
+  strcpy(aliases[no_alais].name, alias_name);
   strcpy(aliases[no_alais].command, command);
   no_alais++;
 }
