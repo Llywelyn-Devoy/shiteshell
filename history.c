@@ -108,7 +108,7 @@ char *load_history_command(struct history_arr *history, char *dest_buf,
   return dest_buf;
 }
 
-//savig history to file
+// savig history to file
 void save_history(struct history_arr *history) {
   if (!history)
     return;
@@ -145,7 +145,7 @@ void save_history(struct history_arr *history) {
   fclose(file);
 }
 
-//loading history from .hist_list
+// loading history from .hist_list
 void load_history(struct history_arr *history) {
   if (!history)
     return;
@@ -158,8 +158,8 @@ void load_history(struct history_arr *history) {
   snprintf(path, sizeof(path), "%s/.hist_list", home);
 
   FILE *file = fopen(path, "r");
-  //file does not exist
-  if (!file) { 
+  // file does not exist
+  if (!file) {
     return;
   }
 
@@ -182,5 +182,3 @@ void load_history(struct history_arr *history) {
 
   fclose(file);
 }
-
-
