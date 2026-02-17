@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include "commands.h"
 #include "history.h"
 #include "io.h"
@@ -153,6 +154,7 @@ int run() {
   // DONE: load history
   struct history_arr history;
   create_history(&history);
+  load_history(&history);
 
   // TODO: load aliases
 
@@ -220,7 +222,7 @@ int run() {
     execute_command(tokens);
   }
 
-  // TODO: save history
+  save_history(&history);
   // TODO: save aliases
   // DONE: restore the original path
   printf("\n");

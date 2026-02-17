@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include "history.h"
 #include "shared.h"
 #include <stdio.h>
@@ -106,3 +107,80 @@ char *load_history_command(struct history_arr *history, char *dest_buf,
   dest_buf[MAX_COMMAND_SIZE - 1] = '\0';
   return dest_buf;
 }
+
+//savig history to file
+void save_history(struct history_arr *history) {
+  if (!history)
+    return;
+
+  const char *home = getenv("HOME");
+  if (!home)
+    return;
+
+  char path[MAX_COMMAND_SIZE];
+  snprintf(path, sizeof(path), "%s/.hist_list", home);
+
+  FILE *file = fopen(path, "w");
+  if (!file) {
+    perror("Failed to save history");
+    return;
+  }
+
+  int total_commands = history->overflow ? HIST_SIZE : history->count;
+
+  for (int i = 0; i < total_commands; i++) {
+    int idx;
+
+    if (history->overflow) {
+      idx = (history->count + i) % HIST_SIZE;
+    } else {
+      idx = i;
+    }
+
+    if (history->commands[idx]) {
+      fprintf(file, "%d %s\n", i + 1, history->commands[idx]);
+    }
+  }
+
+  fclose(file);
+}
+
+//loading history from .hist_list
+void load_history(struct history_arr *history) {
+  if (!history)
+    return;
+
+  const char *home = getenv("HOME");
+  if (!home)
+    return;
+
+  char path[MAX_COMMAND_SIZE];
+  snprintf(path, sizeof(path), "%s/.hist_list", home);
+
+  FILE *file = fopen(path, "r");
+  //file does not exist
+  if (!file) { 
+    return;
+  }
+
+  char line[MAX_COMMAND_SIZE];
+
+  while (fgets(line, sizeof(line), file)) {
+    char *newline = strchr(line, '\n');
+    if (newline)
+      *newline = '\0';
+
+    // Skip number
+    char *space = strchr(line, ' ');
+    if (!space)
+      continue;
+
+    char *command = space + 1;
+
+    add_command_to_history(history, command);
+  }
+
+  fclose(file);
+}
+
+
