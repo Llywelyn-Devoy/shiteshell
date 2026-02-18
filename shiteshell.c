@@ -163,22 +163,40 @@ bool is_there_an_alias(const char *input, int *alias_idx) {
 }
 
 void resolve_alias(const char *input, char *output) {
-  int id;
-  if (!is_there_an_alias(input, &id)) {
-    strcpy(output, input);
-    return;
+  char temp[MAX_COMMAND_SIZE];
+  strcpy(temp, input);
+
+  while (true) {
+    char work[MAX_COMMAND_SIZE];
+    strcpy(work, temp);
+
+    char *tokens[MAX_COMMAND_SIZE] = {0};
+    tokenize_input(work, tokens);
+
+    char next[MAX_COMMAND_SIZE] = {0};
+    bool changed = false;
+
+    for (int i = 0; tokens[i]; i++) {
+      int id = wheres_my_alias(tokens[i]);
+
+      if (id >= 0) {
+        strcat(next, aliases[id].command);
+        changed = true;
+      } else {
+        strcat(next, tokens[i]);
+      }
+
+      if (tokens[i + 1])
+        strcat(next, " ");
+    }
+
+    if (!changed)
+      break;
+
+    strcpy(temp, next);
   }
 
-  const char *rest = input + strlen(aliases[id].name);
-  while (*rest == ' ') {
-    rest++;
-  }
-  strcpy(output, aliases[id].command);
-
-  if (*rest) {
-    strcat(output, " ");
-    strcat(output, rest);
-  }
+  strcpy(output, temp);
 }
 
 void alias_commands(char *const tokens[]) {
