@@ -165,6 +165,7 @@ bool is_there_an_alias(const char *input, int *alias_idx) {
 void resolve_alias(const char *input, char *output) {
   char temp[MAX_COMMAND_SIZE];
   strcpy(temp, input);
+  int stop = 0;
 
   while (true) {
     char work[MAX_COMMAND_SIZE];
@@ -189,9 +190,12 @@ void resolve_alias(const char *input, char *output) {
       if (tokens[i + 1])
         strcat(next, " ");
     }
+    stop++;
 
-    if (!changed)
+    if (!changed || stop > 20){
       break;
+    }
+    
 
     strcpy(temp, next);
   }
