@@ -173,6 +173,10 @@ void resolve_alias(const char *input, char *output) {
 
     char *tokens[MAX_COMMAND_SIZE] = {0};
     tokenize_input(work, tokens);
+    // strange behaviour resolved alias before it as ablue to unalias it
+    if (strcmp(tokens[0] , "unalias") == 0){ 
+      break;
+    }
 
     char next[MAX_COMMAND_SIZE] = {0};
     bool changed = false;
