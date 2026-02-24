@@ -26,7 +26,7 @@ typedef struct {
 } Alias;
 
 Alias aliases[Max_alias];
-int no_alais = 0;
+int no_alias = 0;
 
 void display_prompt() { printf("> "); }
 
@@ -143,7 +143,7 @@ void exec(const char *filename, char *const argv[]) {
 }
 
 int wheres_my_alias(const char *name) {
-  for (int i = 0; i < no_alais; i++) {
+  for (int i = 0; i < no_alias; i++) {
     if (strcmp(aliases[i].name, name) == 0)
       return i;
   }
@@ -174,7 +174,7 @@ void resolve_alias(const char *input, char *output) {
     char *tokens[MAX_COMMAND_SIZE] = {0};
     tokenize_input(work, tokens);
     // strange behaviour resolved alias before it as ablue to unalias it
-    if (strcmp(tokens[0] , "unalias") == 0){ 
+    if (strcmp(tokens[0], "unalias") == 0) {
       break;
     }
 
@@ -196,10 +196,9 @@ void resolve_alias(const char *input, char *output) {
         strcat(next, " ");
     }
 
-    if (!changed){
+    if (!changed) {
       break;
     }
-    
 
     strcpy(temp, next);
   }
@@ -212,7 +211,7 @@ void alias_commands(char *const tokens[]) {
   char *const *rest = &tokens[2];
 
   if (!alias_name) {
-    for (int i = 0; i < no_alais; i++) {
+    for (int i = 0; i < no_alias; i++) {
       printf("%s ='%s'\n", aliases[i].name, aliases[i].command);
     }
     return;
@@ -242,13 +241,13 @@ void alias_commands(char *const tokens[]) {
     printf("alias with same name as previous alias removing previous alias\n");
     strcpy(aliases[alias_idx].command, command);
   } else {
-    if (no_alais >= Max_alias) {
+    if (no_alias >= Max_alias) {
       fprintf(stderr, "wooh there bucko stop renaming stuff 10 max\n");
       return;
     }
-    strcpy(aliases[no_alais].name, alias_name);
-    strcpy(aliases[no_alais].command, command);
-    no_alais++;
+    strcpy(aliases[no_alias].name, alias_name);
+    strcpy(aliases[no_alias].command, command);
+    no_alias++;
   }
 }
 
@@ -264,10 +263,10 @@ void unalias_command(char *const tokens[]) {
     return;
   }
 
-  for (int i = alias_idx; i < no_alais - 1; i++) {
+  for (int i = alias_idx; i < no_alias - 1; i++) {
     aliases[i] = aliases[i + 1];
   }
-  no_alais--;
+  no_alias--;
 }
 
 void execute_command(char *const tokens[]) {
@@ -302,7 +301,7 @@ int run() {
 
   // NOTE: we set the token_buf to the size of the input buf since it guarantees
   // we'll never run out of space in the token buffer.
-  //char *token_buf[MAX_COMMAND_SIZE] = {0};
+  // char *token_buf[MAX_COMMAND_SIZE] = {0};
 
   char cooked_buf[MAX_COMMAND_SIZE] = {0};
 
