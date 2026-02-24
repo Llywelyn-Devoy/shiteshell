@@ -165,7 +165,7 @@ bool is_there_an_alias(const char *input, int *alias_idx) {
 void resolve_alias(const char *input, char *output) {
   char temp[MAX_COMMAND_SIZE];
   strcpy(temp, input);
-  int stop = 0;
+  bool expanded[Max_alias] = {0};
 
   while (true) {
     char work[MAX_COMMAND_SIZE];
@@ -180,9 +180,10 @@ void resolve_alias(const char *input, char *output) {
     for (int i = 0; tokens[i]; i++) {
       int id = wheres_my_alias(tokens[i]);
 
-      if (id >= 0) {
+      if (id >= 0 && !expanded[id]) {
         strcat(next, aliases[id].command);
         changed = true;
+        expanded[id] = true;
       } else {
         strcat(next, tokens[i]);
       }
@@ -190,9 +191,8 @@ void resolve_alias(const char *input, char *output) {
       if (tokens[i + 1])
         strcat(next, " ");
     }
-    stop++;
 
-    if (!changed || stop > 20){
+    if (!changed){
       break;
     }
     
