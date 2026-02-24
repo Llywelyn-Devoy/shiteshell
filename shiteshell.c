@@ -163,26 +163,51 @@ bool is_there_an_alias(const char *input, int *alias_idx) {
 }
 
 void resolve_alias(const char *input, char *output) {
-  int id;
-  if (!is_there_an_alias(input, &id)) {
-    strcpy(output, input);
-    return;
+  char temp[MAX_COMMAND_SIZE];
+  strcpy(temp, input);
+  bool expanded[Max_alias] = {0};
+
+  while (true) {
+    char work[MAX_COMMAND_SIZE];
+    strcpy(work, temp);
+
+    char *tokens[MAX_COMMAND_SIZE] = {0};
+    tokenize_input(work, tokens);
+    // strange behaviour resolved alias before it as ablue to unalias it
+    if (strcmp(tokens[0] , "unalias") == 0){ 
+      break;
+    }
+
+    char next[MAX_COMMAND_SIZE] = {0};
+    bool changed = false;
+
+    for (int i = 0; tokens[i]; i++) {
+      int id = wheres_my_alias(tokens[i]);
+
+      if (id >= 0 && !expanded[id]) {
+        strcat(next, aliases[id].command);
+        changed = true;
+        expanded[id] = true;
+      } else {
+        strcat(next, tokens[i]);
+      }
+
+      if (tokens[i + 1])
+        strcat(next, " ");
+    }
+
+    if (!changed){
+      break;
+    }
+    
+
+    strcpy(temp, next);
   }
 
-  const char *rest = input + strlen(aliases[id].name);
-  while (*rest == ' ') {
-    rest++;
-  }
-  strcpy(output, aliases[id].command);
-
-  if (*rest) {
-    strcat(output, " ");
-    strcat(output, rest);
-  }
+  strcpy(output, temp);
 }
 
 void alias_commands(char *const tokens[]) {
-  const char *cmd_name = tokens[0];
   const char *alias_name = tokens[1];
   char *const *rest = &tokens[2];
 
@@ -277,7 +302,7 @@ int run() {
 
   // NOTE: we set the token_buf to the size of the input buf since it guarantees
   // we'll never run out of space in the token buffer.
-  char *token_buf[MAX_COMMAND_SIZE] = {0};
+  //char *token_buf[MAX_COMMAND_SIZE] = {0};
 
   char cooked_buf[MAX_COMMAND_SIZE] = {0};
 
