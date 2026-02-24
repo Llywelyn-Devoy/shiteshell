@@ -208,7 +208,6 @@ void resolve_alias(const char *input, char *output) {
 }
 
 void alias_commands(char *const tokens[]) {
-  const char *cmd_name = tokens[0];
   const char *alias_name = tokens[1];
   char *const *rest = &tokens[2];
 
@@ -303,7 +302,7 @@ int run() {
 
   // NOTE: we set the token_buf to the size of the input buf since it guarantees
   // we'll never run out of space in the token buffer.
-  char *token_buf[MAX_COMMAND_SIZE] = {0};
+  //char *token_buf[MAX_COMMAND_SIZE] = {0};
 
   char cooked_buf[MAX_COMMAND_SIZE] = {0};
 
