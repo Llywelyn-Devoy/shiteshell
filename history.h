@@ -3,9 +3,9 @@
 #define HIST_SIZE 20
 
 struct history_arr {
-  char *commands[HIST_SIZE];
-  int count;
-  int overflow;
+    char *commands[HIST_SIZE];
+    int count;
+    int overflow;
 };
 
 void create_history(struct history_arr *history);
