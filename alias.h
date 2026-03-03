@@ -1,10 +1,10 @@
 #pragma once
 
 #include "shared.h"
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
 
-// FIXME: this is nasty 
+// FIXME: this is nasty
 #include "shiteshell.h"
 
 #define MAX_ALIASES 10
@@ -13,8 +13,8 @@
 #define UNALIAS_COMMAND_NAME "unalias"
 
 typedef struct {
-  char name[64];
-  char command[MAX_COMMAND_SIZE];
+    char name[64];
+    char command[MAX_COMMAND_SIZE];
 } Alias;
 
 /**
@@ -40,7 +40,6 @@ void alias_command(char *const tokens[]);
  * @param tokens[], null-terminated array of token strings.
  * */
 void unalias_command(char *const tokens[]);
-
 
 /**
  * Takes a raw input string, and attempts resolve all tokens that are aliases.
