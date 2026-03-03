@@ -12,21 +12,10 @@
 #include <sys/types.h> // pid_t datatype
 #include <sys/wait.h>  // wait
 #include <unistd.h>    // fork, execl
+#include "alias.h"
 
 #define PATH_LIMIT 4096 // TODO: find out the path limit on linux
 // The maximum path length is 4096 characters.
-#define Max_alias 10
-
-#define ALIAS_COMMAND_NAME "alias"
-#define UNALIAS_COMMAND_NAME "unalias"
-
-typedef struct {
-  char name[64];
-  char command[MAX_COMMAND_SIZE];
-} Alias;
-
-Alias aliases[Max_alias];
-int no_alias = 0;
 
 void display_prompt() { printf("> "); }
 
@@ -111,6 +100,14 @@ char **tokenize_input(char buf[], char *token_buf[]) {
   return token_buf;
 }
 
+/**
+ * Attempts to execute the specified program, with the supplied arguments.
+ * Errors are printed to stderr.
+ *
+ * @param filename path to the file to execute
+ * @param token_buf[] null terminated arguments assuming the first argument is
+ * the path to the file
+ * */
 void exec(const char *filename, char *const argv[]) {
   assert(filename);
   assert(argv);
@@ -142,133 +139,13 @@ void exec(const char *filename, char *const argv[]) {
   }
 }
 
-int wheres_my_alias(const char *name) {
-  for (int i = 0; i < no_alias; i++) {
-    if (strcmp(aliases[i].name, name) == 0)
-      return i;
-  }
-  return -1;
-}
 
-bool is_there_an_alias(const char *input, int *alias_idx) {
-  char first[64] = {0};
-  sscanf(input, "%63s", first);
 
-  int id = wheres_my_alias(first);
-  if (id >= 0) {
-    *alias_idx = id;
-    return true;
-  }
-  return false;
-}
-
-void resolve_alias(const char *input, char *output) {
-  char temp[MAX_COMMAND_SIZE];
-  strcpy(temp, input);
-  bool expanded[Max_alias] = {0};
-
-  while (true) {
-    char work[MAX_COMMAND_SIZE];
-    strcpy(work, temp);
-
-    char *tokens[MAX_COMMAND_SIZE] = {0};
-    tokenize_input(work, tokens);
-    // strange behaviour resolved alias before it as ablue to unalias it
-    if (strcmp(tokens[0], "unalias") == 0) {
-      break;
-    }
-
-    char next[MAX_COMMAND_SIZE] = {0};
-    bool changed = false;
-
-    for (int i = 0; tokens[i]; i++) {
-      int id = wheres_my_alias(tokens[i]);
-
-      if (id >= 0 && !expanded[id]) {
-        strcat(next, aliases[id].command);
-        changed = true;
-        expanded[id] = true;
-      } else {
-        strcat(next, tokens[i]);
-      }
-
-      if (tokens[i + 1])
-        strcat(next, " ");
-    }
-
-    if (!changed) {
-      break;
-    }
-
-    strcpy(temp, next);
-  }
-
-  strcpy(output, temp);
-}
-
-void alias_commands(char *const tokens[]) {
-  const char *alias_name = tokens[1];
-  char *const *rest = &tokens[2];
-
-  if (!alias_name) {
-    for (int i = 0; i < no_alias; i++) {
-      printf("%s ='%s'\n", aliases[i].name, aliases[i].command);
-    }
-    return;
-  }
-
-  if (STR_EQ(ALIAS_COMMAND_NAME, alias_name) ||
-      STR_EQ(UNALIAS_COMMAND_NAME, alias_name)) {
-    fprintf(stderr, "just dont do that\n");
-    return;
-  }
-
-  if (!rest[0]) {
-    fprintf(stderr, "alias with no command\n");
-    return;
-  }
-
-  char command[MAX_COMMAND_SIZE] = {0};
-  for (int i = 2; tokens[i]; i++) {
-    strcat(command, tokens[i]);
-    if (tokens[i + 1])
-      strcat(command, " ");
-  }
-
-  int alias_idx = wheres_my_alias(alias_name);
-
-  if (alias_idx >= 0) {
-    printf("alias with same name as previous alias removing previous alias\n");
-    strcpy(aliases[alias_idx].command, command);
-  } else {
-    if (no_alias >= Max_alias) {
-      fprintf(stderr, "wooh there bucko stop renaming stuff 10 max\n");
-      return;
-    }
-    strcpy(aliases[no_alias].name, alias_name);
-    strcpy(aliases[no_alias].command, command);
-    no_alias++;
-  }
-}
-
-void unalias_command(char *const tokens[]) {
-  if (!tokens[1]) {
-    fprintf(stderr, "why are you unaliasing nothing\n");
-    return;
-  }
-
-  int alias_idx = wheres_my_alias(tokens[1]);
-  if (alias_idx < 0) {
-    fprintf(stderr, "sorry to tell you but that alias aint real\n");
-    return;
-  }
-
-  for (int i = alias_idx; i < no_alias - 1; i++) {
-    aliases[i] = aliases[i + 1];
-  }
-  no_alias--;
-}
-
+/**
+ * Executes a command. Checks the internal commands first.
+ *
+ * @param tokens[], null-terminated array of token strings.
+ * */
 void execute_command(char *const tokens[]) {
   assert(*tokens);
 
@@ -280,6 +157,8 @@ void execute_command(char *const tokens[]) {
 
 /**
  * Run the shell.
+ *
+ * @return error code.
  * */
 int run() {
   // DONE: save the current path

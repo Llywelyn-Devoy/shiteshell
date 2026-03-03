@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "alias.h"
 
 /**
  * Checks if a colon-separated path list is valid. The list is valid if
@@ -89,8 +90,7 @@ void cmd_change_dir(char *const argv[]) {
     change_directory("~");
   }
 }
-void alias_commands(char *const tokens[]);
-void unalias_command(char *const tokens[]);
+
 
 typedef struct {
   char *name;
@@ -98,7 +98,7 @@ typedef struct {
 } Command;
 Command INTERNAL_COMMANDS[] = {
     {"getpath", &cmd_getpath},    {"setpath", &cmd_setpath},
-    {"cd", &cmd_change_dir},      {"alias", alias_commands},
+    {"cd", &cmd_change_dir},      {"alias", alias_command},
     {"unalias", unalias_command},
 };
 
