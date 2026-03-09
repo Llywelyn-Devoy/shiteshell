@@ -3,6 +3,7 @@
 #include "shared.h"
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 // FIXME: this is nasty
 #include "shiteshell.h"
@@ -51,3 +52,13 @@ void unalias_command(char *const tokens[]);
  * isn't big enough.
  * */
 void resolve_alias(const char *input, char *output);
+
+/**
+ * Saves the current aliases to ~/.aliases
+ */
+void save_aliases();
+
+/**
+ * Loads aliases from ~/.aliases into the shell
+ */
+void load_aliases();
