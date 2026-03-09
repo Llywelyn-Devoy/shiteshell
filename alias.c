@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+
 // FIXME: this is nasty, we don't want this weird two-way dependency
 #include "alias.h"
 #include "shiteshell.h"
@@ -155,4 +156,64 @@ void resolve_alias(const char *input, char *output) {
     }
 
     strcpy(output, temp);
+}
+
+/**
+ * Saves the current contents of the aliases data structure into the .aliases file
+ * in the user's home directory.
+ */
+void save_aliases() {
+    const char *home = getenv("HOME");
+    if (!home) return;
+
+    char path[MAX_COMMAND_SIZE];
+    snprintf(path, sizeof(path), "%s/.aliases", home);
+
+    FILE *file = fopen(path, "w");
+    if (!file) {
+        // If file fails to open, we just return as per "abnormal conditions" check
+        return;
+    }
+
+    for (int i = 0; i < no_alias; i++) {
+        // Format: alias-name command
+        fprintf(file, "%s %s\n", aliases[i].name, aliases[i].command);
+    }
+
+    fclose(file);
+}
+
+
+void load_aliases() {
+    const char *home = getenv("HOME");
+    if (!home) return;
+
+    char path[MAX_COMMAND_SIZE];
+    snprintf(path, sizeof(path), "%s/.aliases", home);
+
+    FILE *file = fopen(path, "r");
+    if (!file) return; // Abnormal condition: file doesn't exist yet
+
+    char line[512]; // Max 512 as per instructions
+    while (fgets(line, sizeof(line), file) && no_alias < MAX_ALIASES) {
+        line[strcspn(line, "\n")] = 0; // Remove newline
+
+        // First token is alias name, rest is command
+        char *space = strchr(line, ' ');
+        if (space) {
+            *space = '\0';
+            char *name = line;
+            char *cmd = space + 1;
+
+            // Trim leading spaces for the command
+            while (*cmd == ' ') cmd++;
+
+            if (strlen(name) > 0 && strlen(cmd) > 0) {
+                strcpy(aliases[no_alias].name, name);
+                strcpy(aliases[no_alias].command, cmd);
+                no_alias++;
+            }
+        }
+    }
+    fclose(file);
 }

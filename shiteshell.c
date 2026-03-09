@@ -172,7 +172,8 @@ int run() {
     create_history(&history);
     load_history(&history);
 
-    // TODO: load aliases
+    // DONE: load aliases
+    load_aliases();
 
     char input_buf[MAX_COMMAND_SIZE] = {0};
 
@@ -244,7 +245,12 @@ int run() {
     }
 
     save_history(&history);
-    // TODO: save aliases
+    
+    // DONE: save aliases
+    save_aliases(); 
+
+    // DONE: restore the original path
+    printf("\n");
     // DONE: restore the original path
     printf("\n");
     printf("Restoring original path...\n");
