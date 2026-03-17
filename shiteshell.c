@@ -127,8 +127,12 @@ void exec(const char *filename, char *const argv[]) {
         default:
             // NOTE: for now just print out the error message, but in future
             // we might want to handle each of the above errors individually.
-            fprintf(stderr, "ERROR: %s\n", strerror(errno));
-            break;
+            fprintf(stderr, "ERROR:");
+            for (int i = 0; argv[i] != NULL; i++) {
+                fprintf(stderr, " %s", argv[i]);
+            }
+            fprintf(stderr, ": %s\n", strerror(errno));
+            
         }
         // NOTE: make sure to end/unalive/kill the child process
         exit(errno);
@@ -145,7 +149,8 @@ void exec(const char *filename, char *const argv[]) {
  * @param tokens[], null-terminated array of token strings.
  * */
 void execute_command(char *const tokens[]) {
-    assert(*tokens);
+    if (!tokens || !tokens[0])
+    return;
 
     if (try_run_internal_command(tokens[0], tokens))
         return;
@@ -191,7 +196,7 @@ int run() {
     print_banner();
 
     // DONE: save the current path
-    char *prelude_path = getenv(ENV_PATH);
+    char *prelude_path = strdup(getenv(ENV_PATH));
     assert(prelude_path);
 
     // DONE: find the user home directory from the environment
@@ -212,7 +217,6 @@ int run() {
     // guarantees we'll never run out of space in the token buffer. char
     // *token_buf[MAX_COMMAND_SIZE] = {0};
 
-    char cooked_buf[MAX_COMMAND_SIZE] = {0};
 
     while (true) {
         display_prompt();
@@ -227,34 +231,62 @@ int run() {
         if (input[0] == '\0')
             continue;
 
-        resolve_alias(input_buf, cooked_buf);
+        char command_buf[MAX_COMMAND_SIZE] = {0};
+        
 
-        char *command_to_process = cooked_buf;
-        char history_expanded_buf[MAX_COMMAND_SIZE] = {
-            0}; // buffer to hold comand found in history
-        char *tokens[MAX_COMMAND_SIZE] = {0};
+        strcpy(command_buf, input);
 
-        // load history command if input is history invoke
-        if (input[0] == '!') {
-            char *loaded =
-                load_history_command(&history, history_expanded_buf, input);
-            if (!loaded) {
+        char history_expanded_buf[MAX_COMMAND_SIZE] = {0}; // buffer to hold comand found in history
+
+        //things to stop infinite loops and adding unwanted things to history
+        bool used_history = false;
+        bool changed = true;
+        bool expanded_alias[MAX_COMMAND_SIZE][MAX_ALIASES] = {0};
+
+        while (changed) {
+            changed = false;
+
+            char temp_buf[MAX_COMMAND_SIZE];
+            strcpy(temp_buf, command_buf);
+
+            char *tokens[MAX_COMMAND_SIZE] = {0};
+            tokenize_input(temp_buf, tokens);
+            if (!tokens[0])
+                break;
+
+            // load history command if input is history invoke
+            if (tokens[0][0] == '!') {
+                used_history = true;
+                char *loaded =
+                  load_history_command(&history, history_expanded_buf, tokens[0]);
+                if (!loaded) {
+                  break;
+                }
+
+                strcpy(command_buf, loaded);
+                changed = true;
                 continue;
             }
 
-            printf("%s\n", loaded);
-            command_to_process =
-                loaded; // update pointer to point to the history
-                        // command instead of the ! string.
-        }
-        // command is not history invoke
-        else {
-            add_command_to_history(&history, input);
+            // resolve aliases
+            char alias_buf[MAX_COMMAND_SIZE] = {0};
+            resolve_alias(command_buf, alias_buf, expanded_alias);
+
+            if (strcmp(alias_buf, command_buf) != 0) {
+                strcpy(command_buf, alias_buf);
+                changed = true;
+            }
         }
 
-        tokenize_input(command_to_process, tokens);
+        char *tokens[MAX_COMMAND_SIZE] = {0};
+        tokenize_input(command_buf, tokens);
         if (!tokens[0])
-            continue;
+         continue;
+
+            // command is not history invoke
+        if (used_history == false) {
+            add_command_to_history(&history, input);
+        }
 
         // print whole history when input is "history"
         if (STR_EQ("history", tokens[0]) && !tokens[1]) {
@@ -288,6 +320,7 @@ int run() {
         if (history.commands[i])
             free(history.commands[i]);
     }
+    free(prelude_path);
 
     return 0;
 }
