@@ -258,7 +258,7 @@ int run() {
             if (tokens[0][0] == '!') {
                 used_history = true;
                 char *loaded =
-                  load_history_command(&history, history_expanded_buf, tokens[0]);
+                  load_history_command(&history, history_expanded_buf, command_buf);
                 if (!loaded) {
                   break;
                 }
