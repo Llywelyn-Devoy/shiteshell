@@ -153,12 +153,25 @@ void execute_command(char *const tokens[]) {
     exec(tokens[0], tokens);
 }
 
+void print_banner() {
+    printf("  _____ _     _ _        _____ _          _ _ \n");
+    printf(" / ____| |   (_) |      / ____| |        | | |\n");
+    printf("| (___ | |__  _| |_ ___| (___ | |__   ___| | |\n");
+    printf(" \\___ \\| '_ \\| | __/ _ \\\\___ \\| '_ \\ / _ \\ | |\n");
+    printf(" ____) | | | | | ||  __/____) | | | |  __/ | |\n");
+    printf("|_____/|_| |_|_|\\__\\___|_____/|_| |_|\\___|_|_|\n");
+    printf("                                              \n");
+    printf("                                              \n");
+}
+
 /**
  * Run the shell.
  *
  * @return error code.
  * */
 int run() {
+    print_banner();
+
     // DONE: save the current path
     char *prelude_path = getenv(ENV_PATH);
     assert(prelude_path);
@@ -245,9 +258,9 @@ int run() {
     }
 
     save_history(&history);
-    
+
     // DONE: save aliases
-    save_aliases(); 
+    save_aliases();
 
     // DONE: restore the original path
     printf("\n");
