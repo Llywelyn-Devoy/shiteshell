@@ -215,11 +215,8 @@ int run() {
     char cooked_buf[MAX_COMMAND_SIZE] = {0};
 
     while (true) {
-        // DONE: display the prompt
         display_prompt();
 
-        // DONE: read
-        // TODO: handle CTRL+C for cancelling child process
         char *input = get_input(input_buf, sizeof(input_buf));
 
         // NOTE: special case for CTRL+D
@@ -265,8 +262,6 @@ int run() {
             continue;
         }
 
-        // TODO: resolve aliases
-
         // NOTE: special case handle internal command exit
         if (STR_EQ("exit", tokens[0]) && !tokens[1])
             break;
@@ -277,12 +272,9 @@ int run() {
 
     save_history(&history);
 
-    // DONE: save aliases
     save_aliases();
 
-    // DONE: restore the original path
     printf("\n");
-    // DONE: restore the original path
     printf("\n");
     printf("Restoring original path...\n");
     int err = setenv(ENV_PATH, prelude_path, true);
