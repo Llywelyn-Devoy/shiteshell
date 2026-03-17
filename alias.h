@@ -51,7 +51,7 @@ void unalias_command(char *const tokens[]);
  * be atleast MAX_COMMAND_SIZE in size. Behaviour is undefined is the buffer
  * isn't big enough.
  * */
-void resolve_alias(const char *input, char *output);
+void resolve_alias(const char *input, char *output, bool expanded_alias[MAX_COMMAND_SIZE][MAX_ALIASES]);
 
 /**
  * Saves the current aliases to ~/.aliases

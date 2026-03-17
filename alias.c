@@ -114,48 +114,58 @@ void unalias_command(char *const tokens[]) {
  * be atleast MAX_COMMAND_SIZE in size. Behaviour is undefined is the buffer
  * isn't big enough.
  * */
-void resolve_alias(const char *input, char *output) {
-    char temp[MAX_COMMAND_SIZE];
-    strcpy(temp, input);
-    bool expanded[MAX_ALIASES] = {0};
+void resolve_alias(const char *input, char *output, bool expanded_alias[MAX_COMMAND_SIZE][MAX_ALIASES]) {
 
-    while (true) {
+    char current[MAX_COMMAND_SIZE];
+    strcpy(current, input);
+
+    while (1) {
+
         char work[MAX_COMMAND_SIZE];
-        strcpy(work, temp);
+        strcpy(work, current);
 
         char *tokens[MAX_COMMAND_SIZE] = {0};
         tokenize_input(work, tokens);
-        // strange behaviour resolved alias before it as ablue to unalias it
-        if (strcmp(tokens[0], UNALIAS_COMMAND_NAME) == 0) {
+
+        if (!tokens[0])
             break;
-        }
+
+        if (strcmp(tokens[0], UNALIAS_COMMAND_NAME) == 0)
+            break;
+
+        if (strcmp(tokens[0], ALIAS_COMMAND_NAME) == 0)
+            break;
 
         char next[MAX_COMMAND_SIZE] = {0};
         bool changed = false;
 
         for (int i = 0; tokens[i]; i++) {
+
             int id = index_of_alias(tokens[i]);
 
-            if (id >= 0 && !expanded[id]) {
-                strcat(next, aliases[id].command);
+            if (id >= 0 && !expanded_alias[i][id]) {
+
+                strncat(next, aliases[id].command, MAX_COMMAND_SIZE - strlen(next) - 1);
+
+                expanded_alias[i][id] = true;
                 changed = true;
-                expanded[id] = true;
+
             } else {
-                strcat(next, tokens[i]);
+
+                strncat(next, tokens[i], MAX_COMMAND_SIZE - strlen(next) - 1);
             }
 
             if (tokens[i + 1])
-                strcat(next, " ");
+                strncat(next, " ", MAX_COMMAND_SIZE - strlen(next) - 1);
         }
 
-        if (!changed) {
+        if (!changed)
             break;
-        }
 
-        strcpy(temp, next);
+        strcpy(current, next);
     }
 
-    strcpy(output, temp);
+    strcpy(output, current);
 }
 
 /**
