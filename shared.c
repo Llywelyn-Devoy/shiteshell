@@ -78,7 +78,8 @@ void change_directory(const char *new_path) {
             case ENAMETOOLONG: // path too long; no need to brag.
             case ENOTDIR:      // a path component is not a dir
             case ENOENT:       // path doesn't point to a dir
-                fprintf(stderr, "ERROR: %s.\n", strerror(errno));
+                fprintf(stderr, "ERROR: Invalid path '%s'. %s.\n", new_path,
+                        strerror(errno));
                 break;
             default: // more obscure errors so we'll just crash. It's called
                      // shiteshell for a reason after all.
