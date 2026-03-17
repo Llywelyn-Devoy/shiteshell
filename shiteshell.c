@@ -154,14 +154,32 @@ void execute_command(char *const tokens[]) {
 }
 
 void print_banner() {
-    printf("  _____ _     _ _        _____ _          _ _ \n");
-    printf(" / ____| |   (_) |      / ____| |        | | |\n");
-    printf("| (___ | |__  _| |_ ___| (___ | |__   ___| | |\n");
-    printf(" \\___ \\| '_ \\| | __/ _ \\\\___ \\| '_ \\ / _ \\ | |\n");
+    printf("  _____ _     _ _        _____ _          _ _  \n");
+    printf(" / ____| |   (_) |      / ____| |        | | | \n");
+    printf("| (___ | |__  _| |_ ___| (___ | |__   ___| | | \n");
+    printf(" \\___ \\| '_ \\| | __/ _ \\\\___ \\| '_ \\ / _ \\ | | \n");
     printf(" ____) | | | | | ||  __/____) | | | |  __/ | |\n");
-    printf("|_____/|_| |_|_|\\__\\___|_____/|_| |_|\\___|_|_|\n");
-    printf("                                              \n");
-    printf("                                              \n");
+    printf("|_____/|_| |_|_|\\__\\___|_____/|_| |_|\\___|_|_| \n");
+    printf("                      W0oco0W                  \n");
+    printf("                     N0occcdK                  \n");
+    printf("                 WN0kdlcllllkN                 \n");
+    printf("              WX0kolcclooolcdX                 \n");
+    printf("         WNKOxdlllooooodol::lk0NW              \n");
+    printf("       WKxl:::cllloolllc:;;:clodOXW            \n");
+    printf("      Xkc;;;:clcc:::::::cclooooooxKW           \n");
+    printf("     Xd:;;;;;::ccclllloooooooooooldK           \n");
+    printf("    W0c:coxkOOkdlccllllldk0000Oxlcl0W          \n");
+    printf("     0oxKW NK00KKklcccoOKK00XWWN0do0W          \n");
+    printf("  WXOdON WOc,'';dKkc:l0Oc,'';dX  Xxx0N         \n");
+    printf(" NOocl0  Xc.....'k0l;d0l.....,xW WOooxKW       \n");
+    printf("Xxc::ckW Nx,....c0Oc;l0x;...'c0  Nkoood0       \n");
+    printf("kc::::lkXWWKkdxOKOdlccoO0kdxONWWNOxddood       \n");
+    printf("d:::::ccoxO0KK0kdlllllcldk0KKK0Oxdddoood       \n");
+    printf("d::;:::::::ccc;,,,,,,,,,,,:loooooolllllo       \n");
+    printf("Oc;;;;;;::::::;,''''''''',:cccccccc::::l       \n");
+    printf("NOc;;;;;;;;;;;;;,,,,,,,,,;;;;;;;;;;;;;lO       \n");
+    printf(" WKxl;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,:lkXW       \n");
+    printf("   WXOdc:;;;;;;;;;;;;;;;;;;;;;;;:cdONW         \n");
 }
 
 /**
