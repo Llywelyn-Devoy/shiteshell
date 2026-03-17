@@ -151,6 +151,9 @@ void resolve_alias(const char *input, char *output, bool expanded_alias[MAX_COMM
                 changed = true;
 
             } else {
+                if (id >= 0 && expanded_alias[i][id]){
+                    printf("INFO: Looping behaviour halted resolution of alias: %s\n", tokens[i]);
+                }
 
                 strncat(next, tokens[i], MAX_COMMAND_SIZE - strlen(next) - 1);
             }
