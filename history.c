@@ -62,11 +62,27 @@ char *load_history_command(struct history_arr *history, char *dest_buf,
     }
     // !N - command with number N (1-based indexing)
     else if (input_buf[0] == '!' && input_buf[1] != '-') {
-        int n = atoi(input_buf + 1);
+        char *endptr;
+        long n = strtol(input_buf + 1, &endptr, 10);
+
+        if (*(input_buf + 1) == '\0') {
+            printf("ERROR: expected a number after '!'\n");
+            return NULL;
+        }
+
+        if (*endptr != '\0') {
+            printf("ERROR: '%s' is not a valid integer.\n", input_buf + 1);
+            return NULL;
+        }
+
+        if (n <= 0) {
+            printf("ERROR: history index must be > 0.\n");
+            return NULL;
+        }
         int total_commands = history->overflow ? HIST_SIZE : history->count;
 
         if (n <= 0 || n > total_commands) {
-            printf("No such command in history.\n");
+            printf("ERROR: history index %ld out of range (1-%d).\n", n, total_commands);
             return NULL;
         }
 
@@ -82,11 +98,27 @@ char *load_history_command(struct history_arr *history, char *dest_buf,
     }
     // !-N - N commands back from last
     else if (strncmp(input_buf, "!-", 2) == 0) {
-        int offset = atoi(input_buf + 2);
+        char *endptr;
+        long offset = strtol(input_buf + 2, &endptr, 10);
+
+        if (*(input_buf + 2) == '\0') {
+            printf("ERROR: expected a number after '!-' \n");
+            return NULL;
+        }
+
+        if (*endptr != '\0') {
+            printf("ERROR: '%s' is not a valid integer.\n", input_buf + 2);
+            return NULL;
+        }
+
+        if (offset <= 0) {
+            printf("ERROR: offset must be > 0.\n");
+            return NULL;
+        }
         int total_commands = history->overflow ? HIST_SIZE : history->count;
 
         if (offset <= 0 || offset > total_commands) {
-            printf("No such command in history.\n");
+            printf("ERROR: history index %ld out of range (1-%d).\n", offset, total_commands);
             return NULL;
         }
 
@@ -95,6 +127,7 @@ char *load_history_command(struct history_arr *history, char *dest_buf,
 
         cmd = history->commands[idx];
     } else {
+        printf("ERROR: invalid history syntax: '%s'\n", input_buf);
         return NULL;
     }
 

@@ -256,6 +256,10 @@ int run() {
 
             // load history command if input is history invoke
             if (tokens[0][0] == '!') {
+                if (tokens[1] != NULL) {
+                    printf("ERROR: history commands do not take arguments.\n");
+                    break;
+                }
                 used_history = true;
                 char *loaded =
                   load_history_command(&history, history_expanded_buf, command_buf);
