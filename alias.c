@@ -36,7 +36,7 @@ void alias_command(char *const tokens[]) {
     char *const *rest = &tokens[2];
 
     if (!alias_name) {
-        if (strcmp (aliases[0].name,  "") == 0) {
+        if (no_alias == 0) {
             printf("INFO: There are no aliases to show you\n");
         }
         for (int i = 0; i < no_alias; i++) {

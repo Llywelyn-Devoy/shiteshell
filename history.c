@@ -54,7 +54,7 @@ char *load_history_command(struct history_arr *history, char *dest_buf,
     // !! - return last command
     if (strcmp(input_buf, "!!") == 0) {
         if (history->count == 0 && !history->overflow) {
-            printf("history is empty.\n");
+            fprintf(stderr, "ERROR: history is empty.\n");
             return NULL;
         }
         int last_idx = (history->count - 1 + HIST_SIZE) % HIST_SIZE;
@@ -112,7 +112,7 @@ char *load_history_command(struct history_arr *history, char *dest_buf,
         }
 
         if (offset <= 0) {
-            printf("ERROR: offset must be > 0.\n");
+            printf("ERROR: history offset must be > 0.\n");
             return NULL;
         }
         int total_commands = history->overflow ? HIST_SIZE : history->count;

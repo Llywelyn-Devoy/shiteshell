@@ -293,8 +293,12 @@ int run() {
         }
 
         // print whole history when input is "history"
-        if (STR_EQ("history", tokens[0]) && !tokens[1]) {
-            print_commands(&history);
+        if (STR_EQ("history", tokens[0])) {
+            if (tokens[1]) {
+                fprintf(stderr, "ERROR: history does not take any arguments.\n");
+            } else {
+                print_commands(&history);
+            }
             continue;
         }
 
