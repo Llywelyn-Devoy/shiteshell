@@ -42,13 +42,6 @@ char *resolve_tilde(const char *path) {
     strcpy(buf, home_path);
     strcat(buf, rm_tilde);
 
-    /* For debugging
-      printf("home_path: %s\n", home_path);
-      printf("path: %s\n", path);
-      printf("rm_tilde: %s\n", rm_tilde);
-      printf("buf: %s\n", buf);
-    */
-
     return buf;
 }
 
@@ -59,11 +52,7 @@ char *resolve_tilde(const char *path) {
  * @param new_path, path to change to.
  * */
 void change_directory(const char *new_path) {
-    // handle '~'
-    // TODO: ok so apparently '~' isn't a thing that's handled by any built
-    // in path-accepting functions, so we need to think more widely about how we
-    // resolve '~' into the current users home directory. For now we'll just
-    // handle it here.
+
     const char *resolved = resolve_tilde(new_path);
     // NOTE: we need to make sure we free the resolved path
     DEFER(shite_free((void **)&resolved)) {
@@ -81,11 +70,8 @@ void change_directory(const char *new_path) {
                 fprintf(stderr, "ERROR: Invalid path '%s'. %s.\n", new_path,
                         strerror(errno));
                 break;
-            default: // more obscure errors so we'll just crash. It's called
-                     // shiteshell for a reason after all.
+            default: 
                 fprintf(stderr, "ERROR: %s.\n", strerror(errno));
-                // TODO: how do we crash safely here? We need to save history
-                // and aliases for instance. Worth asking the helper?
                 exit(errno);
                 break;
             }
