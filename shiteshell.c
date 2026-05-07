@@ -17,6 +17,10 @@
 #define PATH_LIMIT 4096 // TODO: find out the path limit on linux
 // The maximum path length is 4096 characters.
 
+typedef struct {
+    struct history_arr history;
+} ShiteShellState;
+
 void display_prompt() { printf("> "); }
 
 /**
@@ -132,7 +136,6 @@ void exec(const char *filename, char *const argv[]) {
                 fprintf(stderr, " %s", argv[i]);
             }
             fprintf(stderr, ": %s\n", strerror(errno));
-            
         }
         // NOTE: make sure to end/unalive/kill the child process
         exit(errno);
@@ -150,7 +153,7 @@ void exec(const char *filename, char *const argv[]) {
  * */
 void execute_command(char *const tokens[]) {
     if (!tokens || !tokens[0])
-    return;
+        return;
 
     if (try_run_internal_command(tokens[0], tokens))
         return;
@@ -159,32 +162,32 @@ void execute_command(char *const tokens[]) {
 }
 
 void print_banner() {
-    printf("  _____ _     _ _        _____ _          _ _  \n");
-    printf(" / ____| |   (_) |      / ____| |        | | | \n");
-    printf("| (___ | |__  _| |_ ___| (___ | |__   ___| | | \n");
-    printf(" \\___ \\| '_ \\| | __/ _ \\\\___ \\| '_ \\ / _ \\ | | \n");
-    printf(" ____) | | | | | ||  __/____) | | | |  __/ | |\n");
-    printf("|_____/|_| |_|_|\\__\\___|_____/|_| |_|\\___|_|_| \n");
-    printf("                      W0oco0W                  \n");
-    printf("                     N0occcdK                  \n");
-    printf("                 WN0kdlcllllkN                 \n");
-    printf("              WX0kolcclooolcdX                 \n");
-    printf("         WNKOxdlllooooodol::lk0NW              \n");
-    printf("       WKxl:::cllloolllc:;;:clodOXW            \n");
-    printf("      Xkc;;;:clcc:::::::cclooooooxKW           \n");
-    printf("     Xd:;;;;;::ccclllloooooooooooldK           \n");
-    printf("    W0c:coxkOOkdlccllllldk0000Oxlcl0W          \n");
-    printf("     0oxKW NK00KKklcccoOKK00XWWN0do0W          \n");
-    printf("  WXOdON WOc,'';dKkc:l0Oc,'';dX  Xxx0N         \n");
-    printf(" NOocl0  Xc.....'k0l;d0l.....,xW WOooxKW       \n");
-    printf("Xxc::ckW Nx,....c0Oc;l0x;...'c0  Nkoood0       \n");
-    printf("kc::::lkXWWKkdxOKOdlccoO0kdxONWWNOxddood       \n");
-    printf("d:::::ccoxO0KK0kdlllllcldk0KKK0Oxdddoood       \n");
-    printf("d::;:::::::ccc;,,,,,,,,,,,:loooooolllllo       \n");
-    printf("Oc;;;;;;::::::;,''''''''',:cccccccc::::l       \n");
-    printf("NOc;;;;;;;;;;;;;,,,,,,,,,;;;;;;;;;;;;;lO       \n");
-    printf(" WKxl;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,:lkXW       \n");
-    printf("   WXOdc:;;;;;;;;;;;;;;;;;;;;;;;:cdONW         \n");
+    printf("  _____ _     _ _        _____ _          _ _  \n"
+           " / ____| |   (_) |      / ____| |        | | | \n"
+           "| (___ | |__  _| |_ ___| (___ | |__   ___| | | \n"
+           " \\___ \\| '_ \\| | __/ _ \\\\___ \\| '_ \\ / _ \\ | | \n"
+           " ____) | | | | | ||  __/____) | | | |  __/ | |\n"
+           "|_____/|_| |_|_|\\__\\___|_____/|_| |_|\\___|_|_| \n"
+           "                      W0oco0W                  \n"
+           "                     N0occcdK                  \n"
+           "                 WN0kdlcllllkN                 \n"
+           "              WX0kolcclooolcdX                 \n"
+           "         WNKOxdlllooooodol::lk0NW              \n"
+           "       WKxl:::cllloolllc:;;:clodOXW            \n"
+           "      Xkc;;;:clcc:::::::cclooooooxKW           \n"
+           "     Xd:;;;;;::ccclllloooooooooooldK           \n"
+           "    W0c:coxkOOkdlccllllldk0000Oxlcl0W          \n"
+           "     0oxKW NK00KKklcccoOKK00XWWN0do0W          \n"
+           "  WXOdON WOc,'';dKkc:l0Oc,'';dX  Xxx0N         \n"
+           " NOocl0  Xc.....'k0l;d0l.....,xW WOooxKW       \n"
+           "Xxc::ckW Nx,....c0Oc;l0x;...'c0  Nkoood0       \n"
+           "kc::::lkXWWKkdxOKOdlccoO0kdxONWWNOxddood       \n"
+           "d:::::ccoxO0KK0kdlllllcldk0KKK0Oxdddoood       \n"
+           "d::;:::::::ccc;,,,,,,,,,,,:loooooolllllo       \n"
+           "Oc;;;;;;::::::;,''''''''',:cccccccc::::l       \n"
+           "NOc;;;;;;;;;;;;;,,,,,,,,,;;;;;;;;;;;;;lO       \n"
+           " WKxl;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,:lkXW       \n"
+           "   WXOdc:;;;;;;;;;;;;;;;;;;;;;;;:cdONW         \n");
 }
 
 /**
@@ -203,10 +206,10 @@ int run() {
     // DONE: set current working directory to the user home directory
     change_directory("~");
 
+    ShiteShellState state = {0};
     // DONE: load history
-    struct history_arr history;
-    create_history(&history);
-    load_history(&history);
+    create_history(&state.history);
+    load_history(&state.history);
 
     // DONE: load aliases
     load_aliases();
@@ -216,7 +219,6 @@ int run() {
     // NOTE: we set the token_buf to the size of the input buf since it
     // guarantees we'll never run out of space in the token buffer. char
     // *token_buf[MAX_COMMAND_SIZE] = {0};
-
 
     while (true) {
         display_prompt();
@@ -231,76 +233,10 @@ int run() {
         if (input[0] == '\0')
             continue;
 
-        char command_buf[MAX_COMMAND_SIZE] = {0};
-        
-
-        strcpy(command_buf, input);
-
-        char history_expanded_buf[MAX_COMMAND_SIZE] = {0}; // buffer to hold comand found in history
-
-        //things to stop infinite loops and adding unwanted things to history
-        bool used_history = false;
-        bool changed = true;
-        bool expanded_alias[MAX_COMMAND_SIZE][MAX_ALIASES] = {0};
-
-        while (changed) {
-            changed = false;
-
-            char temp_buf[MAX_COMMAND_SIZE];
-            strcpy(temp_buf, command_buf);
-
-            char *tokens[MAX_COMMAND_SIZE] = {0};
-            tokenize_input(temp_buf, tokens);
-            if (!tokens[0])
-                break;
-
-            // load history command if input is history invoke
-            if (tokens[0][0] == '!') {
-                if (tokens[1] != NULL) {
-                    printf("ERROR: history commands do not take arguments.\n");
-                    break;
-                }
-                used_history = true;
-                char *loaded =
-                  load_history_command(&history, history_expanded_buf, command_buf);
-                if (!loaded) {
-                  break;
-                }
-
-                strcpy(command_buf, loaded);
-                changed = true;
-                continue;
-            }
-
-            // resolve aliases
-            char alias_buf[MAX_COMMAND_SIZE] = {0};
-            resolve_alias(command_buf, alias_buf, expanded_alias);
-
-            if (strcmp(alias_buf, command_buf) != 0) {
-                strcpy(command_buf, alias_buf);
-                changed = true;
-            }
-        }
-
         char *tokens[MAX_COMMAND_SIZE] = {0};
-        tokenize_input(command_buf, tokens);
+        tokenize_input(input, tokens);
         if (!tokens[0])
-         continue;
-
-            // command is not history invoke
-        if (used_history == false) {
-            add_command_to_history(&history, input);
-        }
-
-        // print whole history when input is "history"
-        if (STR_EQ("history", tokens[0])) {
-            if (tokens[1]) {
-                fprintf(stderr, "ERROR: history does not take any arguments.\n");
-            } else {
-                print_commands(&history);
-            }
             continue;
-        }
 
         // NOTE: special case handle internal command exit
         if (STR_EQ("exit", tokens[0]) && !tokens[1])
@@ -310,7 +246,7 @@ int run() {
         execute_command(tokens);
     }
 
-    save_history(&history);
+    save_history(&state.history);
 
     save_aliases();
 
@@ -325,8 +261,8 @@ int run() {
     printf("Exiting normally...\n");
 
     for (int i = 0; i < HIST_SIZE; i++) {
-        if (history.commands[i])
-            free(history.commands[i]);
+        if (state.history.commands[i])
+            free(state.history.commands[i]);
     }
     free(prelude_path);
 
