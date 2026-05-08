@@ -1,4 +1,3 @@
-#define _POSIX_C_SOURCE 200809L
 #include "alias.h"
 #include "commands.h"
 #include "history.h"
@@ -17,8 +16,10 @@
 #define PATH_LIMIT 4096 // TODO: find out the path limit on linux
 // The maximum path length is 4096 characters.
 
+#define TOK_MATCH(tokens, ...) tok_match(tokens, (char *[]){__VA_ARGS__, NULL})
+
 typedef struct {
-    struct history_arr history;
+    History history;
 } ShiteShellState;
 
 void display_prompt() { printf("> "); }
@@ -102,6 +103,20 @@ char **tokenize_input(char buf[], char *token_buf[]) {
     }
 
     return token_buf;
+}
+
+bool tok_match(char **tokens, char **pattern) {
+    for (int i = 0;; i++) {
+        const char *tok = tokens[i];
+        const char *pat = pattern[i];
+        if (tok == NULL && pat == NULL)
+            break;
+        else if (tok == NULL || pat == NULL)
+            return false;
+        else if (!STR_EQ(tok, pat))
+            return false;
+    }
+    return true;
 }
 
 /**
@@ -201,70 +216,105 @@ int run() {
     // DONE: save the current path
     char *prelude_path = strdup(getenv(ENV_PATH));
     assert(prelude_path);
+    DEFER(shite_free((void **)&prelude_path)) {
 
-    // DONE: find the user home directory from the environment
-    // DONE: set current working directory to the user home directory
-    change_directory("~");
+        // DONE: find the user home directory from the environment
+        // DONE: set current working directory to the user home directory
+        change_directory("~");
 
-    ShiteShellState state = {0};
-    // DONE: load history
-    create_history(&state.history);
-    load_history(&state.history);
+        ShiteShellState state = {0};
+        // DONE: load history
+        history_load(&state.history);
 
-    // DONE: load aliases
-    load_aliases();
+        // DONE: load aliases
+        load_aliases();
 
-    char input_buf[MAX_COMMAND_SIZE] = {0};
+        char input_buf[MAX_COMMAND_SIZE] = {0};
+        while (true) {
+            display_prompt();
 
-    // NOTE: we set the token_buf to the size of the input buf since it
-    // guarantees we'll never run out of space in the token buffer. char
-    // *token_buf[MAX_COMMAND_SIZE] = {0};
+            const char *input = get_input(input_buf, sizeof(input_buf));
 
-    while (true) {
-        display_prompt();
+            // NOTE: special case for CTRL+D
+            if (!input)
+                break;
 
-        char *input = get_input(input_buf, sizeof(input_buf));
+            // Skip empty input
+            if (input[0] == '\0')
+                continue;
 
-        // NOTE: special case for CTRL+D
-        if (!input)
-            break;
+            bool push_to_history = true;
+            char scratch[MAX_COMMAND_SIZE] = {0};
+        tokenize:
+            strcpy(scratch, input);
+            char *tokens[MAX_COMMAND_SIZE] = {0};
+            tokenize_input(scratch, tokens);
+            if (!tokens[0])
+                continue;
 
-        // Skip empty input
-        if (input[0] == '\0')
-            continue;
+            if (TOK_MATCH(tokens, "exit")) {
+                break;
+            } else if (TOK_MATCH(tokens, "history")) {
+                history_print(&state.history);
+                continue;
+            } else if (TOK_MATCH(tokens, "!!")) {
+                push_to_history = false;
+                const char *prev = history_peek_back(&state.history);
+                if (!prev) {
+                    printf("History is empty\n");
+                    continue;
+                } else {
+                    input = prev;
+                    goto tokenize;
+                }
+            } else if (STR_STARTSWITH(tokens[0], "!")) {
+                if (tokens[1]) {
+                    fprintf(stderr, "ERROR: too many arguments.\n");
+                } else {
+                    const char *number_part = tokens[0] + strlen("!");
+                    // TODO: use strtol
+                    const int count = history_count(&state.history);
+                    const int offset = atoi(number_part);
 
-        char *tokens[MAX_COMMAND_SIZE] = {0};
-        tokenize_input(input, tokens);
-        if (!tokens[0])
-            continue;
+                    if (offset == 0 || (offset < 0 && -offset > count)) {
+                        fprintf(stderr, "ERROR: invalid number offset.\n");
+                        continue;
+                    }
+                    if (offset > 0 && offset > count) {
+                        fprintf(stderr, "ERROR: invalid history item.\n");
+                        continue;
+                    }
 
-        // NOTE: special case handle internal command exit
-        if (STR_EQ("exit", tokens[0]) && !tokens[1])
-            break;
+                    push_to_history = false;
 
-        // DONE: execute command
-        execute_command(tokens);
+                    if (offset > 0)
+                        input = history_get(&state.history, offset - 1);
+                    else
+                        input = history_get(&state.history, count + offset);
+                    goto tokenize;
+                }
+            }
+
+            if (push_to_history)
+                history_push_back(&state.history, strdup(input));
+
+            // DONE: execute command
+            execute_command(tokens);
+        }
+        history_save(&state.history);
+        history_free(&state.history);
+
+        save_aliases();
+
+        printf("\n");
+        printf("\n");
+        printf("Restoring original path...\n");
+        int err = setenv(ENV_PATH, prelude_path, true);
+        assert(!err);
+        printf("Path restored to:\n");
+        printf("\"%s\"\n", prelude_path);
+
+        printf("Exiting normally...\n");
     }
-
-    save_history(&state.history);
-
-    save_aliases();
-
-    printf("\n");
-    printf("\n");
-    printf("Restoring original path...\n");
-    int err = setenv(ENV_PATH, prelude_path, true);
-    assert(!err);
-    printf("Path restored to:\n");
-    printf("\"%s\"\n", prelude_path);
-
-    printf("Exiting normally...\n");
-
-    for (int i = 0; i < HIST_SIZE; i++) {
-        if (state.history.commands[i])
-            free(state.history.commands[i]);
-    }
-    free(prelude_path);
-
     return 0;
 }
