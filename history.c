@@ -33,6 +33,11 @@ void history_load(History *history) {
     read_lines(filepath, &lines, &line_count);
     shite_free((void **)&filepath);
 
+    if (line_count > HISTORY_SIZE) {
+        perror("ERROR: invalid history save file at ~/.shiteshell_history.");
+        exit(-1);
+    }
+
     history->capacity = HISTORY_SIZE + 1;
     lines = realloc(lines, history->capacity * sizeof(lines[0]));
     assert(lines);
