@@ -20,6 +20,7 @@
 
 typedef struct {
     History history;
+    AliasStore alias_store;
 } ShiteShellState;
 
 void display_prompt() { printf("> "); }
@@ -230,7 +231,7 @@ int run() {
         history_load(&state.history);
 
         // DONE: load aliases
-        load_aliases();
+        aliasstore_load(&state.alias_store);
 
         char input_buf[MAX_COMMAND_SIZE] = {0};
         while (true) {
@@ -254,6 +255,67 @@ int run() {
             tokenize_input(scratch, tokens);
             if (!tokens[0])
                 continue;
+
+            // NOTE: in order for alias and unalias commands to not act weird
+            // we need to special case these commands _before_ alias resolution.
+            if (STR_EQ(tokens[0], "alias")) {
+                const char *name = tokens[1];
+                if (!name) {
+                    aliasstore_print(&state.alias_store);
+                    continue;
+                }
+                char cmd[MAX_COMMAND_SIZE] = {0};
+
+                if (!tokens[2]) {
+                    fprintf(stderr,
+                            "ERROR: alias expects a command to be aliased.");
+                    continue;
+                }
+
+                for (int i = 2; tokens[i] != NULL; i++) {
+                    if (i > 2) {
+                        strcat(cmd, " ");
+                    }
+                    strcat(cmd, tokens[i]);
+                }
+
+                aliasstore_add_alias(&state.alias_store, strdup(name),
+                                     strdup(cmd));
+                continue;
+            } else if (STR_EQ(tokens[0], "unalias")) {
+                const char *name = tokens[1];
+                if (!name) {
+                    fprintf(stderr, "ERROR: unalias expects an alias name.\n");
+                    continue;
+                }
+
+                Alias *alias = aliasstore_get_by_name(&state.alias_store, name);
+                if (!alias) {
+                    fprintf(stderr, "ERROR: no such alias with name \"%s\".\n",
+                            name);
+                } else {
+                    aliasstore_rm(&state.alias_store, &alias);
+                }
+                continue;
+            }
+
+            char new_input[MAX_COMMAND_SIZE] = {0};
+            AliasResolveResult res = aliasstore_resolve_alias(
+                &state.alias_store, tokens, new_input, sizeof(new_input));
+
+            switch (res) {
+            case Success:
+                input = new_input;
+                goto tokenize;
+                break;
+            case Failure:
+                // TODO: better error handling here
+                fprintf(stderr, "ERROR: alias resolution expanded beyond max "
+                                "supported command size.\n");
+                exit(-1);
+            case NoResolution:
+                break;
+            }
 
             if (TOK_MATCH(tokens, "exit")) {
                 break;
@@ -307,7 +369,8 @@ int run() {
         history_save(&state.history);
         history_free(&state.history);
 
-        save_aliases();
+        aliasstore_save(&state.alias_store);
+        aliasstore_free(&state.alias_store);
 
         printf("\n");
         printf("\n");

@@ -99,9 +99,11 @@ typedef struct {
     void (*action)(char *const[]);
 } Command;
 Command INTERNAL_COMMANDS[] = {
-    {"getpath", &cmd_getpath},    {"setpath", &cmd_setpath},
-    {"cd", &cmd_change_dir},      {"alias", alias_command},
-    {"unalias", unalias_command},
+    {"getpath", &cmd_getpath},
+    {"setpath", &cmd_setpath},
+    {"cd", &cmd_change_dir},
+    // {"alias", alias_command},
+    // {"unalias", unalias_command},
 };
 
 /**

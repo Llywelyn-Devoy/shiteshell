@@ -1,64 +1,44 @@
-#pragma once
-
-#include "shared.h"
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-// FIXME: this is nasty
-#include "shiteshell.h"
-
-#define MAX_ALIASES 10
-
-#define ALIAS_COMMAND_NAME "alias"
-#define UNALIAS_COMMAND_NAME "unalias"
-
-typedef struct {
-    char name[64];
-    char command[MAX_COMMAND_SIZE];
+typedef struct AliasT {
+    char *name;
+    char *cmd;
+    struct AliasT *prev;
+    struct AliasT *next;
 } Alias;
 
-/**
- * Returns the index of the alias, otherwise -1.
- *
- * @param name name of the alias
- * @return -1 if the alias is not found, otherwise the index of the alias.
- * */
-int index_of_alias(const char *name);
+typedef struct {
+    Alias *head;
+    Alias *tail;
+} AliasStore;
 
-/**
- * Takes a null-terminated array of tokens and attempts to create a new alias.
- * Errors are written to stderr
- *
- * @param tokens[], null-terminated array of token strings.
- * */
-void alias_command(char *const tokens[]);
+char *aliasstore_get_filepath();
 
-/**
- * Takes a null-terminated array of tokens and attempts to remove a defined
- * alias. Errors are written to stderr
- *
- * @param tokens[], null-terminated array of token strings.
- * */
-void unalias_command(char *const tokens[]);
+Alias *alias_create(char *name, char *cmd);
 
-/**
- * Takes a raw input string, and attempts resolve all tokens that are aliases.
- * This operation is done, exactly once for each alias found.
- *
- * @param input, the raw string from the user
- * @param output, a buffer to write the resolved input string into. Buffer must
- * be atleast MAX_COMMAND_SIZE in size. Behaviour is undefined is the buffer
- * isn't big enough.
- * */
-void resolve_alias(const char *input, char *output, bool expanded_alias[MAX_COMMAND_SIZE][MAX_ALIASES]);
+void alias_free(Alias **alias_ptr);
 
-/**
- * Saves the current aliases to ~/.aliases
- */
-void save_aliases();
+Alias *_alias_parse_from_line(char *str);
 
-/**
- * Loads aliases from ~/.aliases into the shell
- */
-void load_aliases();
+void aliasstore_push(AliasStore *store, Alias *alias);
+
+
+int aliasstore_count(AliasStore *store);
+
+void aliasstore_rm(AliasStore *store, Alias **alias_ptr);
+
+bool aliasstore_load(AliasStore *store);
+
+bool aliasstore_save(AliasStore *store);
+
+void aliasstore_free(AliasStore *store);
+
+Alias *aliasstore_get_by_name(const AliasStore *store, const char *name);
+
+void aliasstore_add_alias(AliasStore *store, char *name, char *cmd);
+
+typedef enum { Failure, Success, NoResolution } AliasResolveResult;
+
+AliasResolveResult aliasstore_resolve_alias(const AliasStore *store,
+                                            char **tokens, char *out,
+                                            int out_buf_size);
+
+void aliasstore_print(const AliasStore *store);
