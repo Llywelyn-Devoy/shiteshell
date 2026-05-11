@@ -1,3 +1,7 @@
 #include <stdbool.h>
 
-int run();
+typedef struct {
+    bool no_banner : 1;
+} ShiteShellOpts;
+
+int run(ShiteShellOpts *opts);

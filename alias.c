@@ -232,15 +232,7 @@ AliasResolveResult aliasstore_resolve_alias(const AliasStore *store,
 }
 
 void aliasstore_print(const AliasStore *store) {
-    int max_name_len = 0;
     FOREACH_ALIAS(alias, store) {
-        int alias_name_len = strlen(alias->name);
-        if (alias_name_len > max_name_len)
-            max_name_len = alias_name_len;
+        printf("alias %s %s\n", alias->name, alias->cmd);
     }
-
-    char format_str[MAX_COMMAND_SIZE] = {0};
-    sprintf(format_str, "%%-%ds -> \"%%s\"\n", max_name_len);
-
-    FOREACH_ALIAS(alias, store) { printf(format_str, alias->name, alias->cmd); }
 }

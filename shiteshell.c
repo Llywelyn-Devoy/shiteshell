@@ -1,3 +1,4 @@
+#include "shiteshell.h"
 #include "alias.h"
 #include "commands.h"
 #include "history.h"
@@ -5,6 +6,7 @@
 #include "shared.h"
 #include <assert.h>
 #include <errno.h> // errno
+#include <linux/limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,9 +15,6 @@
 #include <sys/wait.h>  // wait
 #include <unistd.h>    // fork, execl
 
-#define PATH_LIMIT 4096 // TODO: find out the path limit on linux
-// The maximum path length is 4096 characters.
-
 #define TOK_MATCH(tokens, ...) tok_match(tokens, (char *[]){__VA_ARGS__, NULL})
 
 typedef struct {
@@ -23,7 +22,27 @@ typedef struct {
     AliasStore alias_store;
 } ShiteShellState;
 
-void display_prompt() { printf("> "); }
+void display_prompt() {
+    char cwd[PATH_MAX];
+    if (!getcwd(cwd, sizeof(cwd))) {
+        // TODO: maybe we don't want to crash here?
+        perror("getcwd() error");
+        exit(-1);
+    }
+
+    const char *format_str = "%s $> ";
+    // try to remove home path
+    const char *home_path = (const char *)getenv("HOME");
+    if (STR_STARTSWITH(cwd, home_path)) {
+        char pretty_path[PATH_MAX];
+        const char *slice = cwd + strlen(home_path);
+        strcpy(pretty_path, "~");
+        strcat(pretty_path, slice);
+        printf(format_str, pretty_path);
+    } else {
+        printf(format_str, cwd);
+    }
+}
 
 /**
  * Reads the user input from stdin and writes into the supplied buffer
@@ -214,8 +233,9 @@ void print_banner() {
  *
  * @return error code.
  * */
-int run() {
-    print_banner();
+int run(ShiteShellOpts *opts) {
+    if (opts->no_banner == false)
+        print_banner();
 
     // DONE: save the current path
     char *prelude_path = strdup(getenv(ENV_PATH));
