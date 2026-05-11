@@ -495,16 +495,16 @@ int run(ShiteShellOpts *opts) {
             char mut_input[MAX_COMMAND_SIZE] = {0};
             strcpy(mut_input, input);
             char *tokens[MAX_COMMAND_SIZE] = {0};
-            time_t resolution_start = time(NULL);
-            const int resolution_time_limit = 1; // 1 second
-            int counter = 0;
+
+            const int max_iterations = 64;
+            int iteration = 0;
             while (1) {
-                counter++;
-                time_t resolution_current = time(NULL);
-                if (resolution_current - resolution_start >
-                    resolution_time_limit) {
-                    fprintf(stderr, "ERROR: alias resolution timed-out.\n");
-                    printf("counter: %d\n", counter);
+                if (iteration++ >= max_iterations) {
+                    fprintf(stderr,
+                            "ERROR: alias resolution has reached "
+                            "iteration limit, (%d). Maybe there is a cycle "
+                            "within your aliases?\n",
+                            max_iterations);
                     goto prompt;
                 }
 
