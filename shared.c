@@ -6,6 +6,8 @@
 #include <string.h>
 #include <unistd.h>
 
+inline int abs(int n) { return n < 0 ? -n : n; }
+
 /*
  * Free and set to
  * null.
@@ -70,7 +72,7 @@ void change_directory(const char *new_path) {
                 fprintf(stderr, "ERROR: Invalid path '%s'. %s.\n", new_path,
                         strerror(errno));
                 break;
-            default: 
+            default:
                 fprintf(stderr, "ERROR: %s.\n", strerror(errno));
                 exit(errno);
                 break;

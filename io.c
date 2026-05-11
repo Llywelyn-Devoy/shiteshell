@@ -68,6 +68,7 @@ bool read_lines(const char *filepath, char ***lines_out, int *line_count_out) {
     while (fgets(buf, sizeof(buf), fp)) {
         char *newline = strrchr(buf, '\n');
         if (!newline) {
+            // BUG: returning without cleaning up
             // invalid file as lines too big
             return false;
         } else {

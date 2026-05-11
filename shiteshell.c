@@ -1,7 +1,4 @@
 #include "shiteshell.h"
-#include "alias.h"
-#include "commands.h"
-#include "history.h"
 #include "io.h"
 #include "shared.h"
 #include <assert.h>
@@ -13,14 +10,243 @@
 #include <string.h>
 #include <sys/types.h> // pid_t datatype
 #include <sys/wait.h>  // wait
-#include <unistd.h>    // fork, execl
+#include <time.h>
+#include <unistd.h> // fork, execl
+
+typedef enum {
+    CMD_RES_NotRecognized,
+    CMD_RES_InvalidFormat,
+    CMD_RES_Success,
+} CmdResult;
+
+/**
+ * Checks if a colon-separated path list is valid. The list is valid if
+ * all of the paths within it are valid directories.
+ *
+ * @param path, colon-separated list of paths
+ * @param path_len, the length of the path str
+ * @return `true` if the path list is valid, `false` otherwise.
+ * */
+bool _is_valid_path(const char *path, int path_len) {
+    // duplicate the path as to not overwrite it
+    char path_dup[path_len + 1];
+    memcpy(path_dup, path, sizeof(path_dup));
+    char delim[] = ":";
+    char *dir_path = strtok(path_dup, delim);
+    while (dir_path) {
+        if (!directory_exists(dir_path))
+            // TODO: return this invalid path, so that we can be more specific
+            // to the user about the issue.
+            return false;
+        dir_path = strtok(NULL, delim);
+    }
+    return true;
+}
+
+CmdResult cmd_getpath(char *const argv[]) {
+    const char *const name = argv[0];
+    if (!STR_EQ(name, "getpath")) {
+        return CMD_RES_NotRecognized;
+    }
+    if (argv[1]) {
+        fprintf(stderr, "ERROR: `%s` expects no arguments.\n", name);
+        return CMD_RES_InvalidFormat;
+    }
+
+    const char *path = getenv(ENV_PATH);
+    assert(path);
+    printf("%s\n", path);
+    return CMD_RES_Success;
+}
+
+CmdResult cmd_setpath(char *const argv[]) {
+    const char *const name = argv[0];
+    if (!STR_EQ(name, "setpath")) {
+        return CMD_RES_NotRecognized;
+    }
+
+    const char *new_path = argv[1];
+    const char *null = argv[2];
+    if (!new_path || null != NULL) {
+        fprintf(
+            stderr,
+            "ERROR: Invalid arguments. "
+            "`%s` expects one argument; a colon-separated list to set the path "
+            "to.\n",
+            name);
+        return CMD_RES_InvalidFormat;
+    }
+
+    if (!_is_valid_path(new_path, strlen(new_path))) {
+        fprintf(stderr,
+                "ERROR: path provided is invalid. It must be "
+                "colon-separated and all paths within must be valid.\n");
+        return CMD_RES_InvalidFormat;
+    }
+
+    int err = setenv(ENV_PATH, new_path, true);
+    assert(!err);
+
+    printf("\"%s\" has been set.\n", ENV_PATH);
+    return CMD_RES_Success;
+}
+
+CmdResult cmd_change_dir(char *const argv[]) {
+    const char *name = argv[0];
+    const char *path = argv[1];
+    const char *null = argv[2];
+    if (!STR_EQ(name, "cd")) {
+        return CMD_RES_NotRecognized;
+    }
+    if (null != NULL) {
+        fprintf(
+            stderr,
+            "ERROR: invalid arguments."
+            "`%s` requires one optional argument for the path to change to.\n",
+            name);
+        return CMD_RES_InvalidFormat;
+    }
+
+    if (path) {
+        change_directory(path);
+    } else {
+        change_directory("~"); // default to user home
+    }
+    return CMD_RES_Success;
+}
+
+CmdResult cmd_alias(ShiteShellState *state, char *const argv[]) {
+    const char *name = argv[0];
+    if (!STR_EQ(name, "alias")) {
+        return CMD_RES_NotRecognized;
+    }
+
+    const char *alias_name = argv[1];
+    if (!alias_name) {
+        aliasstore_print(&state->alias_store);
+        return CMD_RES_Success;
+    }
+
+    if (STR_EQ(alias_name, "alias")) {
+        fprintf(stderr, "ERROR: cannot create alias with name \"alias\", "
+                        "restricted name.\n");
+        return CMD_RES_InvalidFormat;
+    }
+
+    if (STR_EQ(alias_name, "unalias")) {
+        fprintf(stderr, "ERROR: cannot create alias with name \"unalias\", "
+                        "restricted name.\n");
+        return CMD_RES_InvalidFormat;
+    }
+
+    char alias_cmd[MAX_COMMAND_SIZE] = {0};
+
+    if (!argv[2]) {
+        fprintf(stderr, "ERROR: alias expects a command to be aliased.\n");
+        return CMD_RES_InvalidFormat;
+    }
+
+    for (int i = 2; argv[i] != NULL; i++) {
+        if (i > 2) {
+            strcat(alias_cmd, " ");
+        }
+        strcat(alias_cmd, argv[i]);
+    }
+
+    aliasstore_add_alias(&state->alias_store, strdup(alias_name),
+                         strdup(alias_cmd));
+    return CMD_RES_Success;
+}
+
+CmdResult cmd_unalias(ShiteShellState *state, char *const argv[]) {
+    const char *name = argv[0];
+    if (!STR_EQ(name, "unalias")) {
+        return CMD_RES_NotRecognized;
+    }
+
+    const char *alias_name = argv[1];
+    if (!alias_name) {
+        fprintf(stderr, "ERROR: unalias expects an alias name.\n");
+        return CMD_RES_InvalidFormat;
+    }
+
+    Alias *alias = aliasstore_get_by_name(&state->alias_store, alias_name);
+    if (!alias) {
+        fprintf(stderr, "ERROR: no such alias with name \"%s\".\n", alias_name);
+        return CMD_RES_InvalidFormat;
+    }
+
+    aliasstore_rm(&state->alias_store, &alias);
+    return CMD_RES_Success;
+}
+
+CmdResult cmd_history_print(ShiteShellState *state, char *const argv[]) {
+    const char *name = argv[0];
+    const char *null = argv[1];
+    if (!STR_EQ(name, "history")) {
+        return CMD_RES_NotRecognized;
+    }
+
+    if (null != NULL) {
+        return CMD_RES_InvalidFormat;
+    }
+
+    history_print(&state->history);
+    return CMD_RES_Success;
+}
+
+CmdResult cmd_history_last(ShiteShellState *state, char *const argv[],
+                           char *new_input_out) {
+    const char *name = argv[0];
+    if (!STR_EQ(name, "!!")) {
+        return CMD_RES_NotRecognized;
+    }
+    const char *prev = history_peek_back(&state->history);
+    if (!prev) {
+        printf("History is empty\n");
+        return CMD_RES_InvalidFormat;
+    }
+    strcpy(new_input_out, prev);
+    return CMD_RES_Success;
+}
+
+CmdResult cmd_history_at(ShiteShellState *state, char *const argv[],
+                         char *new_input_out) {
+    const char *name = argv[0];
+    const char *null = argv[1];
+    if (!STR_STARTSWITH(name, "!")) {
+        return CMD_RES_NotRecognized;
+    }
+
+    if (null != NULL) {
+        fprintf(stderr, "ERROR: too many arguments.\n");
+        return CMD_RES_InvalidFormat;
+    }
+
+    const char *number_part = name + strlen("!");
+    assert(!STR_STARTSWITH(number_part, " "));
+    const int count = history_count(&state->history);
+    errno = 0; // reset errno
+    char *end = NULL;
+    const long offset = strtol(number_part, &end, 10);
+    const bool range_err = errno == ERANGE;
+    if (!range_err)
+        assert(0 == strlen(end));
+
+    if (range_err || offset == 0 || abs((int)offset) > count ||
+        STR_STARTSWITH(number_part, "+")) {
+        fprintf(stderr, "ERROR: invalid history number.\n");
+        return CMD_RES_InvalidFormat;
+    }
+
+    if (offset > 0)
+        strcpy(new_input_out, history_get(&state->history, offset - 1));
+    else
+        strcpy(new_input_out, history_get(&state->history, count + offset));
+    return CMD_RES_Success;
+}
 
 #define TOK_MATCH(tokens, ...) tok_match(tokens, (char *[]){__VA_ARGS__, NULL})
-
-typedef struct {
-    History history;
-    AliasStore alias_store;
-} ShiteShellState;
 
 void display_prompt() {
     char cwd[PATH_MAX];
@@ -190,9 +416,6 @@ void execute_command(char *const tokens[]) {
     if (!tokens || !tokens[0])
         return;
 
-    if (try_run_internal_command(tokens[0], tokens))
-        return;
-
     exec(tokens[0], tokens);
 }
 
@@ -253,10 +476,11 @@ int run(ShiteShellOpts *opts) {
         // DONE: load aliases
         aliasstore_load(&state.alias_store);
 
-        char input_buf[MAX_COMMAND_SIZE] = {0};
         while (true) {
+        prompt:
             display_prompt();
 
+            char input_buf[MAX_COMMAND_SIZE] = {0};
             const char *input = get_input(input_buf, sizeof(input_buf));
 
             // NOTE: special case for CTRL+D
@@ -265,127 +489,111 @@ int run(ShiteShellOpts *opts) {
 
             // Skip empty input
             if (input[0] == '\0')
-                continue;
+                goto prompt;
 
             bool push_to_history = true;
-            char scratch[MAX_COMMAND_SIZE] = {0};
-        tokenize:
-            strcpy(scratch, input);
+            char mut_input[MAX_COMMAND_SIZE] = {0};
+            strcpy(mut_input, input);
             char *tokens[MAX_COMMAND_SIZE] = {0};
-            tokenize_input(scratch, tokens);
-            if (!tokens[0])
-                continue;
+            time_t resolution_start = time(NULL);
+            const int resolution_time_limit = 1; // 1 second
+            int counter = 0;
+            while (1) {
+                counter++;
+                time_t resolution_current = time(NULL);
+                if (resolution_current - resolution_start >
+                    resolution_time_limit) {
+                    fprintf(stderr, "ERROR: alias resolution timed-out.\n");
+                    printf("counter: %d\n", counter);
+                    goto prompt;
+                }
 
-            // NOTE: in order for alias and unalias commands to not act weird
-            // we need to special case these commands _before_ alias resolution.
-            if (STR_EQ(tokens[0], "alias")) {
-                const char *name = tokens[1];
-                if (!name) {
-                    aliasstore_print(&state.alias_store);
+                tokenize_input(mut_input, tokens);
+                if (!tokens[0])
+                    goto prompt;
+
+                // NOTE: in order for alias and unalias commands to not act
+                // weird we need to special case these commands _before_ alias
+                // resolution.
+                if (cmd_alias(&state, tokens) != CMD_RES_NotRecognized) {
+                    // BUG: no checks for recursive aliases.
+                    // BUG: no checks for cyclical aliases.
+                    goto prompt;
+                }
+
+                if (cmd_unalias(&state, tokens) != CMD_RES_NotRecognized) {
+                    goto prompt;
+                }
+
+                // BUG: each token should only be resolved once, so resolved
+                // child tokens cannot be resolved. I think this is how bash
+                // does so it shouldn't be too limiting.
+                char new_input[MAX_COMMAND_SIZE] = {0};
+                AliasResolveResult res = aliasstore_resolve_alias(
+                    &state.alias_store, tokens, new_input, sizeof(new_input));
+
+                switch (res) {
+                case NoResolution:
+                    break;
+                case Success:
+                    strcpy(mut_input, new_input);
                     continue;
-                }
-                char cmd[MAX_COMMAND_SIZE] = {0};
-
-                if (!tokens[2]) {
-                    fprintf(stderr,
-                            "ERROR: alias expects a command to be aliased.");
-                    continue;
-                }
-
-                for (int i = 2; tokens[i] != NULL; i++) {
-                    if (i > 2) {
-                        strcat(cmd, " ");
-                    }
-                    strcat(cmd, tokens[i]);
+                    break;
+                case Failure:
+                    fprintf(
+                        stderr,
+                        "ERROR: alias resolution expanded beyond the maximum "
+                        "supported command size.\n");
+                    goto prompt;
                 }
 
-                aliasstore_add_alias(&state.alias_store, strdup(name),
-                                     strdup(cmd));
-                continue;
-            } else if (STR_EQ(tokens[0], "unalias")) {
-                const char *name = tokens[1];
-                if (!name) {
-                    fprintf(stderr, "ERROR: unalias expects an alias name.\n");
-                    continue;
+                if (TOK_MATCH(tokens, "exit")) {
+                    goto exit;
                 }
 
-                Alias *alias = aliasstore_get_by_name(&state.alias_store, name);
-                if (!alias) {
-                    fprintf(stderr, "ERROR: no such alias with name \"%s\".\n",
-                            name);
-                } else {
-                    aliasstore_rm(&state.alias_store, &alias);
-                }
-                continue;
-            }
-
-            char new_input[MAX_COMMAND_SIZE] = {0};
-            AliasResolveResult res = aliasstore_resolve_alias(
-                &state.alias_store, tokens, new_input, sizeof(new_input));
-
-            switch (res) {
-            case Success:
-                input = new_input;
-                goto tokenize;
-                break;
-            case Failure:
-                // TODO: better error handling here
-                fprintf(stderr, "ERROR: alias resolution expanded beyond max "
-                                "supported command size.\n");
-                exit(-1);
-            case NoResolution:
-                break;
-            }
-
-            if (TOK_MATCH(tokens, "exit")) {
-                break;
-            } else if (TOK_MATCH(tokens, "history")) {
-                history_print(&state.history);
-                continue;
-            } else if (TOK_MATCH(tokens, "!!")) {
-                push_to_history = false;
-                const char *prev = history_peek_back(&state.history);
-                if (!prev) {
-                    printf("History is empty\n");
-                    continue;
-                } else {
-                    input = prev;
-                    goto tokenize;
-                }
-            } else if (STR_STARTSWITH(tokens[0], "!")) {
-                if (tokens[1]) {
-                    fprintf(stderr, "ERROR: too many arguments.\n");
-                } else {
-                    const char *number_part = tokens[0] + strlen("!");
-                    // TODO: use strtol
-                    const int count = history_count(&state.history);
-                    const int offset = atoi(number_part);
-
-                    if (offset == 0 || (offset < 0 && -offset > count)) {
-                        fprintf(stderr, "ERROR: invalid number offset.\n");
-                        continue;
-                    }
-                    if (offset > 0 && offset > count) {
-                        fprintf(stderr, "ERROR: invalid history item.\n");
-                        continue;
-                    }
-
+                if (cmd_history_print(&state, tokens) !=
+                    CMD_RES_NotRecognized) {
                     push_to_history = false;
-
-                    if (offset > 0)
-                        input = history_get(&state.history, offset - 1);
-                    else
-                        input = history_get(&state.history, count + offset);
-                    goto tokenize;
+                    goto prompt;
                 }
+
+                switch (cmd_history_last(&state, tokens, mut_input)) {
+                case CMD_RES_InvalidFormat:
+                    goto prompt;
+                case CMD_RES_Success:
+                    push_to_history = false;
+                    continue;
+                default:
+                    break;
+                }
+
+                switch (cmd_history_at(&state, tokens, mut_input)) {
+                case CMD_RES_InvalidFormat:
+                    goto prompt;
+                case CMD_RES_Success:
+                    push_to_history = false;
+                    continue;
+                default:
+                    break;
+                }
+
+                break;
             }
 
             if (push_to_history)
                 history_push_back(&state.history, strdup(input));
 
+            if (cmd_getpath(tokens) == CMD_RES_Success)
+                goto prompt;
+            if (cmd_setpath(tokens) == CMD_RES_Success)
+                goto prompt;
+            if (cmd_change_dir(tokens) == CMD_RES_Success)
+                goto prompt;
             // DONE: execute command
             execute_command(tokens);
         }
+    exit:
+
         history_save(&state.history);
         history_free(&state.history);
 

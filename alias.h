@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 typedef struct AliasT {
     char *name;
     char *cmd;
@@ -19,7 +21,6 @@ void alias_free(Alias **alias_ptr);
 Alias *_alias_parse_from_line(char *str);
 
 void aliasstore_push(AliasStore *store, Alias *alias);
-
 
 int aliasstore_count(AliasStore *store);
 
