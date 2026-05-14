@@ -195,54 +195,58 @@ CmdResult cmd_history_print(ShiteShellState *state, char *const argv[]) {
     return CMD_RES_SUCCESS;
 }
 
-CmdResult cmd_history_last(ShiteShellState *state, char *const argv[],
-                           char *new_input_out) {
-    const char *name = argv[0];
-    if (!STR_EQ(name, "!!")) {
-        return CMD_RES_NOT_RECOGNIZED;
-    }
-    const char *prev = history_peek_back(&state->history);
-    if (!prev) {
-        printf("History is empty\n");
-        return CMD_RES_INVALID_FORMAT;
-    }
-    strcpy(new_input_out, prev);
-    return CMD_RES_SUCCESS;
-}
-
-CmdResult cmd_history_at(ShiteShellState *state, char *const argv[],
-                         char *new_input_out) {
+CmdResult cmd_history_invoke(ShiteShellState *state, char *const argv[],
+                             char *new_input_out) {
     const char *name = argv[0];
     const char *null = argv[1];
-    if (!STR_STARTSWITH(name, "!")) {
-        return CMD_RES_NOT_RECOGNIZED;
-    }
-
     if (null != NULL) {
         fprintf(stderr, "ERROR: too many arguments.\n");
         return CMD_RES_INVALID_FORMAT;
     }
+    if (!STR_STARTSWITH(name, "!")) {
+        return CMD_RES_NOT_RECOGNIZED;
+    }
 
-    const char *number_part = name + strlen("!");
-    assert(!STR_STARTSWITH(number_part, " "));
     const int count = history_count(&state->history);
-    errno = 0; // reset errno
-    char *end = NULL;
-    const long offset = strtol(number_part, &end, 10);
-    const bool range_err = errno == ERANGE;
-    if (!range_err)
-        assert(0 == strlen(end));
-
-    if (range_err || offset == 0 || abs((int)offset) > count ||
-        STR_STARTSWITH(number_part, "+")) {
-        fprintf(stderr, "ERROR: invalid history number.\n");
+    if (count == 0) {
+        printf("INFO: History is empty\n");
         return CMD_RES_INVALID_FORMAT;
     }
 
-    if (offset > 0)
-        strcpy(new_input_out, history_get(&state->history, offset - 1));
-    else
-        strcpy(new_input_out, history_get(&state->history, count + offset));
+    long offset = 0;
+    bool err_parse = false;
+    if (STR_EQ(name, "!!")) {
+        offset = -1;
+    } else {
+        const char *number_part = name + strlen("!");
+        // We are assuming tokenisation of spaces
+        assert(!STR_STARTSWITH(number_part, " "));
+
+        // TODO: break out number parsing
+        if (STR_STARTSWITH(number_part, "+")) { // we don't accept numbers
+            // starting with '+'
+            err_parse = true;
+        } else {
+            errno = 0; // reset errno so we can read it
+            char *end = NULL;
+            offset = strtol(number_part, &end, 10);
+            err_parse = errno == ERANGE || !STR_EQ(end, "");
+        }
+    }
+
+    if (err_parse) {
+        fprintf(stderr, "ERROR: invalid number format.\n");
+        return CMD_RES_INVALID_FORMAT;
+    }
+
+    const int idx = (offset > 0) ? offset - 1 : count + offset;
+    const char *history_item = history_get(&state->history, idx);
+    if (offset == 0 || !history_item) {
+        fprintf(stderr, "ERROR: no such history item.\n");
+        return CMD_RES_INVALID_FORMAT;
+    }
+
+    strcpy(new_input_out, history_item);
     return CMD_RES_SUCCESS;
 }
 
@@ -552,17 +556,7 @@ int run(ShiteShellOpts *opts) {
                     goto prompt;
                 }
 
-                switch (cmd_history_last(&state, tokens, mut_input)) {
-                case CMD_RES_INVALID_FORMAT:
-                    goto prompt;
-                case CMD_RES_SUCCESS:
-                    push_to_history = false;
-                    continue;
-                default:
-                    break;
-                }
-
-                switch (cmd_history_at(&state, tokens, mut_input)) {
+                switch (cmd_history_invoke(&state, tokens, mut_input)) {
                 case CMD_RES_INVALID_FORMAT:
                     goto prompt;
                 case CMD_RES_SUCCESS:

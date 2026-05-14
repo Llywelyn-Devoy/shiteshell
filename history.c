@@ -91,10 +91,6 @@ char *history_get(const History *history, const int index) {
     return history->cmds[true_index];
 }
 
-char *history_peek_back(const History *history) {
-    return history_get(history, history_count(history) - 1);
-}
-
 void history_print(const History *history) {
     const int count = history_count(history);
     for (int i = 0; i < count; i++) {
