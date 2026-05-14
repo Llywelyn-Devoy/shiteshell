@@ -498,20 +498,19 @@ int run(ShiteShellOpts *opts) {
             strcpy(mut_input, input);
             char *tokens[MAX_COMMAND_SIZE] = {0};
 
-            const int MAX_ITERATIONS = 64;
-            int iteration = 0;
+            const int ITERATION_LIMIT = 64;
             bool push_to_history = true;
             bool re_prompt = false;
-            while (true) {
+            for (int iteration = 0;; iteration++) {
                 if (re_prompt)
                     break;
 
-                if (iteration++ >= MAX_ITERATIONS) {
+                if (iteration >= ITERATION_LIMIT) {
                     fprintf(stderr,
                             "ERROR: alias resolution has reached "
                             "iteration limit, (%d). Maybe there is a cycle "
                             "within your aliases?\n",
-                            MAX_ITERATIONS);
+                            ITERATION_LIMIT);
                     re_prompt = true;
                     continue;
                 }
@@ -557,7 +556,7 @@ int run(ShiteShellOpts *opts) {
                     goto exit;
                 }
 
-                if (cmd_history_print(&state, tokens) != CMD_NOT_RECOGNIZED) {
+                if (CMD_NOT_RECOGNIZED != cmd_history_print(&state, tokens)) {
                     push_to_history = false;
                     re_prompt = true;
                     continue;
@@ -577,8 +576,25 @@ int run(ShiteShellOpts *opts) {
                 break;
             }
 
-            if (push_to_history)
-                history_push_back(&state.history, strdup(input));
+            if (push_to_history) {
+                // only push to history if the new command doesn't match the
+                // last history item
+                const char *history_last = history_peek_back(&state.history);
+                if (history_last) {
+                    char history_last_buf[MAX_COMMAND_SIZE];
+                    strcpy(history_last_buf, history_last);
+                    char *history_last_tok[MAX_COMMAND_SIZE];
+                    tokenize_input(history_last_buf, history_last_tok);
+
+                    char og_input[MAX_COMMAND_SIZE];
+                    strcpy(og_input, input);
+                    char *og_input_tok[MAX_COMMAND_SIZE];
+                    tokenize_input(og_input, og_input_tok);
+
+                    if (!tok_match(og_input_tok, history_last_tok))
+                        history_push_back(&state.history, strdup(input));
+                }
+            }
 
             if (re_prompt)
                 continue;

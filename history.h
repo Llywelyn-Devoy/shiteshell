@@ -32,6 +32,8 @@ char *history_push_back(History *history, char *cmd);
 
 char *history_get(const History *history, int index);
 
+char *history_peek_back(const History *history);
+
 void history_print(const History *history);
 
 void history_free(History *history);
