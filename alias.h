@@ -1,5 +1,8 @@
 #include <stdbool.h>
 
+#define FOREACH_ALIAS(name, store)                                             \
+    for (Alias *name = store->head; name != NULL; name = name->next)
+
 typedef struct AliasT {
     char *name;
     char *cmd;
@@ -36,7 +39,7 @@ Alias *aliasstore_get_by_name(const AliasStore *store, const char *name);
 
 void aliasstore_add_alias(AliasStore *store, char *name, char *cmd);
 
-typedef enum { Failure, Success, NoResolution } AliasResolveResult;
+typedef enum { ARR_FAILURE, ARR_SUCCESS, ARR_NO_CHANGE } AliasResolveResult;
 
 AliasResolveResult aliasstore_resolve_alias(const AliasStore *store,
                                             char **tokens, char *out,

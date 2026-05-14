@@ -1,8 +1,8 @@
 #include "io.h"
 #include "shared.h"
 #include <assert.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #define HISTORY_SIZE 20
 #define HISTORY_FILENAME ".shiteshell_history"

@@ -18,7 +18,7 @@ char *history_get_filepath() {
     const char *home = getenv("HOME");
 
     const int buf_size = snprintf(NULL, 0, "%s/%s", home, HISTORY_FILENAME);
-    char *buf = malloc((buf_size+1) * sizeof(buf[0]));
+    char *buf = malloc((buf_size + 1) * sizeof(buf[0]));
     const int written =
         snprintf(buf, buf_size + 1, "%s/%s", home, HISTORY_FILENAME);
     assert(buf_size == written);

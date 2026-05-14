@@ -14,9 +14,9 @@
 #include <unistd.h> // fork, execl
 
 typedef enum {
-    CMD_RES_NotRecognized,
-    CMD_RES_InvalidFormat,
-    CMD_RES_Success,
+    CMD_RES_NOT_RECOGNIZED,
+    CMD_RES_INVALID_FORMAT,
+    CMD_RES_SUCCESS,
 } CmdResult;
 
 /**
@@ -46,23 +46,23 @@ bool _is_valid_path(const char *path, int path_len) {
 CmdResult cmd_getpath(char *const argv[]) {
     const char *const name = argv[0];
     if (!STR_EQ(name, "getpath")) {
-        return CMD_RES_NotRecognized;
+        return CMD_RES_NOT_RECOGNIZED;
     }
     if (argv[1]) {
         fprintf(stderr, "ERROR: `%s` expects no arguments.\n", name);
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     const char *path = getenv(ENV_PATH);
     assert(path);
     printf("%s\n", path);
-    return CMD_RES_Success;
+    return CMD_RES_SUCCESS;
 }
 
 CmdResult cmd_setpath(char *const argv[]) {
     const char *const name = argv[0];
     if (!STR_EQ(name, "setpath")) {
-        return CMD_RES_NotRecognized;
+        return CMD_RES_NOT_RECOGNIZED;
     }
 
     const char *new_path = argv[1];
@@ -74,21 +74,21 @@ CmdResult cmd_setpath(char *const argv[]) {
             "`%s` expects one argument; a colon-separated list to set the path "
             "to.\n",
             name);
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     if (!_is_valid_path(new_path, strlen(new_path))) {
         fprintf(stderr,
                 "ERROR: path provided is invalid. It must be "
                 "colon-separated and all paths within must be valid.\n");
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     int err = setenv(ENV_PATH, new_path, true);
     assert(!err);
 
     printf("\"%s\" has been set.\n", ENV_PATH);
-    return CMD_RES_Success;
+    return CMD_RES_SUCCESS;
 }
 
 CmdResult cmd_change_dir(char *const argv[]) {
@@ -96,7 +96,7 @@ CmdResult cmd_change_dir(char *const argv[]) {
     const char *path = argv[1];
     const char *null = argv[2];
     if (!STR_EQ(name, "cd")) {
-        return CMD_RES_NotRecognized;
+        return CMD_RES_NOT_RECOGNIZED;
     }
     if (null != NULL) {
         fprintf(
@@ -104,7 +104,7 @@ CmdResult cmd_change_dir(char *const argv[]) {
             "ERROR: invalid arguments."
             "`%s` requires one optional argument for the path to change to.\n",
             name);
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     if (path) {
@@ -112,38 +112,38 @@ CmdResult cmd_change_dir(char *const argv[]) {
     } else {
         change_directory("~"); // default to user home
     }
-    return CMD_RES_Success;
+    return CMD_RES_SUCCESS;
 }
 
 CmdResult cmd_alias(ShiteShellState *state, char *const argv[]) {
     const char *name = argv[0];
     if (!STR_EQ(name, "alias")) {
-        return CMD_RES_NotRecognized;
+        return CMD_RES_NOT_RECOGNIZED;
     }
 
     const char *alias_name = argv[1];
     if (!alias_name) {
         aliasstore_print(&state->alias_store);
-        return CMD_RES_Success;
+        return CMD_RES_SUCCESS;
     }
 
     if (STR_EQ(alias_name, "alias")) {
         fprintf(stderr, "ERROR: cannot create alias with name \"alias\", "
                         "restricted name.\n");
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     if (STR_EQ(alias_name, "unalias")) {
         fprintf(stderr, "ERROR: cannot create alias with name \"unalias\", "
                         "restricted name.\n");
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     char alias_cmd[MAX_COMMAND_SIZE] = {0};
 
     if (!argv[2]) {
         fprintf(stderr, "ERROR: alias expects a command to be aliased.\n");
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     for (int i = 2; argv[i] != NULL; i++) {
@@ -155,59 +155,59 @@ CmdResult cmd_alias(ShiteShellState *state, char *const argv[]) {
 
     aliasstore_add_alias(&state->alias_store, strdup(alias_name),
                          strdup(alias_cmd));
-    return CMD_RES_Success;
+    return CMD_RES_SUCCESS;
 }
 
 CmdResult cmd_unalias(ShiteShellState *state, char *const argv[]) {
     const char *name = argv[0];
     if (!STR_EQ(name, "unalias")) {
-        return CMD_RES_NotRecognized;
+        return CMD_RES_NOT_RECOGNIZED;
     }
 
     const char *alias_name = argv[1];
     if (!alias_name) {
         fprintf(stderr, "ERROR: unalias expects an alias name.\n");
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     Alias *alias = aliasstore_get_by_name(&state->alias_store, alias_name);
     if (!alias) {
         fprintf(stderr, "ERROR: no such alias with name \"%s\".\n", alias_name);
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     aliasstore_rm(&state->alias_store, &alias);
-    return CMD_RES_Success;
+    return CMD_RES_SUCCESS;
 }
 
 CmdResult cmd_history_print(ShiteShellState *state, char *const argv[]) {
     const char *name = argv[0];
     const char *null = argv[1];
     if (!STR_EQ(name, "history")) {
-        return CMD_RES_NotRecognized;
+        return CMD_RES_NOT_RECOGNIZED;
     }
 
     if (null != NULL) {
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     history_print(&state->history);
-    return CMD_RES_Success;
+    return CMD_RES_SUCCESS;
 }
 
 CmdResult cmd_history_last(ShiteShellState *state, char *const argv[],
                            char *new_input_out) {
     const char *name = argv[0];
     if (!STR_EQ(name, "!!")) {
-        return CMD_RES_NotRecognized;
+        return CMD_RES_NOT_RECOGNIZED;
     }
     const char *prev = history_peek_back(&state->history);
     if (!prev) {
         printf("History is empty\n");
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
     strcpy(new_input_out, prev);
-    return CMD_RES_Success;
+    return CMD_RES_SUCCESS;
 }
 
 CmdResult cmd_history_at(ShiteShellState *state, char *const argv[],
@@ -215,12 +215,12 @@ CmdResult cmd_history_at(ShiteShellState *state, char *const argv[],
     const char *name = argv[0];
     const char *null = argv[1];
     if (!STR_STARTSWITH(name, "!")) {
-        return CMD_RES_NotRecognized;
+        return CMD_RES_NOT_RECOGNIZED;
     }
 
     if (null != NULL) {
         fprintf(stderr, "ERROR: too many arguments.\n");
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     const char *number_part = name + strlen("!");
@@ -236,14 +236,14 @@ CmdResult cmd_history_at(ShiteShellState *state, char *const argv[],
     if (range_err || offset == 0 || abs((int)offset) > count ||
         STR_STARTSWITH(number_part, "+")) {
         fprintf(stderr, "ERROR: invalid history number.\n");
-        return CMD_RES_InvalidFormat;
+        return CMD_RES_INVALID_FORMAT;
     }
 
     if (offset > 0)
         strcpy(new_input_out, history_get(&state->history, offset - 1));
     else
         strcpy(new_input_out, history_get(&state->history, count + offset));
-    return CMD_RES_Success;
+    return CMD_RES_SUCCESS;
 }
 
 #define TOK_MATCH(tokens, ...) tok_match(tokens, (char *[]){__VA_ARGS__, NULL})
@@ -515,31 +515,26 @@ int run(ShiteShellOpts *opts) {
                 // NOTE: in order for alias and unalias commands to not act
                 // weird we need to special case these commands _before_ alias
                 // resolution.
-                if (cmd_alias(&state, tokens) != CMD_RES_NotRecognized) {
-                    // BUG: no checks for recursive aliases.
-                    // BUG: no checks for cyclical aliases.
+                if (cmd_alias(&state, tokens) != CMD_RES_NOT_RECOGNIZED) {
                     goto prompt;
                 }
 
-                if (cmd_unalias(&state, tokens) != CMD_RES_NotRecognized) {
+                if (cmd_unalias(&state, tokens) != CMD_RES_NOT_RECOGNIZED) {
                     goto prompt;
                 }
 
-                // BUG: each token should only be resolved once, so resolved
-                // child tokens cannot be resolved. I think this is how bash
-                // does so it shouldn't be too limiting.
                 char new_input[MAX_COMMAND_SIZE] = {0};
                 AliasResolveResult res = aliasstore_resolve_alias(
                     &state.alias_store, tokens, new_input, sizeof(new_input));
 
                 switch (res) {
-                case NoResolution:
+                case ARR_NO_CHANGE:
                     break;
-                case Success:
+                case ARR_SUCCESS:
                     strcpy(mut_input, new_input);
                     continue;
                     break;
-                case Failure:
+                case ARR_FAILURE:
                     fprintf(
                         stderr,
                         "ERROR: alias resolution expanded beyond the maximum "
@@ -552,15 +547,15 @@ int run(ShiteShellOpts *opts) {
                 }
 
                 if (cmd_history_print(&state, tokens) !=
-                    CMD_RES_NotRecognized) {
+                    CMD_RES_NOT_RECOGNIZED) {
                     push_to_history = false;
                     goto prompt;
                 }
 
                 switch (cmd_history_last(&state, tokens, mut_input)) {
-                case CMD_RES_InvalidFormat:
+                case CMD_RES_INVALID_FORMAT:
                     goto prompt;
-                case CMD_RES_Success:
+                case CMD_RES_SUCCESS:
                     push_to_history = false;
                     continue;
                 default:
@@ -568,9 +563,9 @@ int run(ShiteShellOpts *opts) {
                 }
 
                 switch (cmd_history_at(&state, tokens, mut_input)) {
-                case CMD_RES_InvalidFormat:
+                case CMD_RES_INVALID_FORMAT:
                     goto prompt;
-                case CMD_RES_Success:
+                case CMD_RES_SUCCESS:
                     push_to_history = false;
                     continue;
                 default:
@@ -583,11 +578,11 @@ int run(ShiteShellOpts *opts) {
             if (push_to_history)
                 history_push_back(&state.history, strdup(input));
 
-            if (cmd_getpath(tokens) == CMD_RES_Success)
+            if (cmd_getpath(tokens) == CMD_RES_SUCCESS)
                 goto prompt;
-            if (cmd_setpath(tokens) == CMD_RES_Success)
+            if (cmd_setpath(tokens) == CMD_RES_SUCCESS)
                 goto prompt;
-            if (cmd_change_dir(tokens) == CMD_RES_Success)
+            if (cmd_change_dir(tokens) == CMD_RES_SUCCESS)
                 goto prompt;
             // DONE: execute command
             execute_command(tokens);

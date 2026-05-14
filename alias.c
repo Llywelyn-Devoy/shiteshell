@@ -1,3 +1,4 @@
+#include "alias.h"
 #include "io.h"
 #include "shared.h"
 #include <assert.h>
@@ -5,21 +6,6 @@
 #include <stdlib.h>
 #define ALIAS_STORE_SIZE 20
 #define ALIAS_STORE_FILENAME ".shiteshell_aliases"
-
-#define FOREACH_ALIAS(name, store)                                             \
-    for (Alias *name = store->head; name != NULL; name = name->next)
-
-typedef struct AliasT {
-    char *name;
-    char *cmd;
-    struct AliasT *prev;
-    struct AliasT *next;
-} Alias;
-
-typedef struct {
-    Alias *head;
-    Alias *tail;
-} AliasStore;
 
 char *aliasstore_get_filepath() {
     const char *home = (char *)getenv("HOME");
@@ -194,23 +180,27 @@ void aliasstore_add_alias(AliasStore *store, char *name, char *cmd) {
     aliasstore_push(store, alias_create(name, cmd));
 }
 
-typedef enum { Failure, Success, NoResolution } AliasResolveResult;
+bool mystrcat(char *dest, int dest_buf_size, int *dest_len, const char *src) {
+    const int src_len = strlen(src);
+    if (*dest_len + src_len + 1 > dest_buf_size)
+        return false;
+
+    strcat(dest, src);
+    *dest_len += src_len;
+    return true;
+}
 
 AliasResolveResult aliasstore_resolve_alias(const AliasStore *store,
-                                            char **tokens, char *out,
+                                            char **tokens, char *out_buf,
                                             int out_buf_size) {
-    out[0] = '\0';
-    int out_size = 0;
+    out_buf[0] = '\0';
+    int out_len = 0;
+
 #define resolve_concat(s)                                                      \
-    do {                                                                       \
-        const int _s_len = strlen(s);                                          \
-        if (out_size + _s_len + 1 > out_buf_size)                              \
-            return Failure;                                                    \
-        else {                                                                 \
-            out_size += _s_len;                                                \
-            strcat(out, s);                                                    \
-        }                                                                      \
-    } while (0);
+    do                                                                         \
+        if (!mystrcat(out_buf, out_buf_size, &out_len, s))                     \
+            return ARR_FAILURE;                                                \
+    while (0);
 
     bool resolution_made = false;
     for (int i = 0; tokens[i] != NULL; i++) {
@@ -218,16 +208,16 @@ AliasResolveResult aliasstore_resolve_alias(const AliasStore *store,
             resolve_concat(" ");
 
         char *tok = tokens[i];
-        Alias *alias = aliasstore_get_by_name(store, tok);
+        const Alias *alias = aliasstore_get_by_name(store, tok);
         if (alias) {
-            resolution_made |= true;
             resolve_concat(alias->cmd);
+            resolution_made |= true;
         } else {
             resolve_concat(tok);
         }
     }
 
-    return resolution_made ? Success : NoResolution;
+    return resolution_made ? ARR_SUCCESS : ARR_NO_CHANGE;
 #undef resolve_concat
 }
 
