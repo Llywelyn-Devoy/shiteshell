@@ -129,21 +129,20 @@ bool aliasstore_load(AliasStore *store) {
 }
 
 bool aliasstore_save(AliasStore *store) {
-    bool success = true;
     const char *filepath = aliasstore_get_filepath();
     FILE *fp = fopen(filepath, "w");
     shite_free((void **)&filepath);
     if (!fp) {
-        success = false;
-    } else {
-        FOREACH_ALIAS(alias, store) {
-            fprintf(fp, "%s %s\n", alias->name, alias->cmd);
-        }
-
-        // TODO: error handling a bit here
+        return false;
     }
+
+    FOREACH_ALIAS(alias, store) {
+        fprintf(fp, "%s %s\n", alias->name, alias->cmd);
+    }
+
+    // TODO: error handling a bit here
     fclose(fp);
-    return success;
+    return true;
 }
 
 void aliasstore_free(AliasStore *store) {
