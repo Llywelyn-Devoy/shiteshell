@@ -593,6 +593,8 @@ int run(ShiteShellOpts *opts) {
 
                     if (!tok_match(og_input_tok, history_last_tok))
                         history_push_back(&state.history, strdup(input));
+                } else {
+                    history_push_back(&state.history, strdup(input));
                 }
             }
 
