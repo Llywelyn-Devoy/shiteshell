@@ -1,16 +1,14 @@
 # Welcome to ShiteShell
 
-This is ShiteShell, a well, shite shell. This project is for CS210
-Computer Systems and Architecture.
+It's a basic implementation of a bash-like shell with command running, aliasing
+and history. This was a team-based project for the CS210 Computer Systems and Architecture module.
 
 # Building and running
 
-If your on linux, type `make` and there should then be an executable
+If you're on Linux, type `make` and there should then be an executable
 under `./bin/`.
 
-If you're on windows, you may as well throw yourself out a window because
-we don't drivel... Unless... You have WSL, in which case we do
-support that.
+If you're on Windows, probably best to use WSL and follow the Linux steps above.
 
 # Formatting 
 
