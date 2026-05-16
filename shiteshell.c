@@ -10,8 +10,7 @@
 #include <string.h>
 #include <sys/types.h> // pid_t datatype
 #include <sys/wait.h>  // wait
-#include <time.h>
-#include <unistd.h> // fork, execl
+#include <unistd.h>    // fork, execl
 
 typedef enum {
     CMD_NOT_RECOGNIZED,
@@ -581,14 +580,14 @@ int run(ShiteShellOpts *opts) {
                 // last history item
                 const char *history_last = history_peek_back(&state.history);
                 if (history_last) {
-                    char history_last_buf[MAX_COMMAND_SIZE];
+                    char history_last_buf[MAX_COMMAND_SIZE] = {0};
                     strcpy(history_last_buf, history_last);
-                    char *history_last_tok[MAX_COMMAND_SIZE];
+                    char *history_last_tok[MAX_COMMAND_SIZE] = {0};
                     tokenize_input(history_last_buf, history_last_tok);
 
-                    char og_input[MAX_COMMAND_SIZE];
+                    char og_input[MAX_COMMAND_SIZE] = {0};
                     strcpy(og_input, input);
-                    char *og_input_tok[MAX_COMMAND_SIZE];
+                    char *og_input_tok[MAX_COMMAND_SIZE] = {0};
                     tokenize_input(og_input, og_input_tok);
 
                     if (!tok_match(og_input_tok, history_last_tok))
