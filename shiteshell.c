@@ -500,6 +500,7 @@ int run(ShiteShellOpts *opts) {
             const int ITERATION_LIMIT = 64;
             bool push_to_history = true;
             bool re_prompt = false;
+            bool exit = false;
             for (int iteration = 0;; iteration++) {
                 if (re_prompt)
                     break;
@@ -552,7 +553,8 @@ int run(ShiteShellOpts *opts) {
                 }
 
                 if (TOK_MATCH(tokens, "exit")) {
-                    goto exit;
+                    exit = true;
+                    break;
                 }
 
                 if (CMD_NOT_RECOGNIZED != cmd_history_print(&state, tokens)) {
@@ -597,6 +599,9 @@ int run(ShiteShellOpts *opts) {
                 }
             }
 
+            if (exit)
+                break;
+
             if (re_prompt)
                 continue;
 
@@ -610,23 +615,32 @@ int run(ShiteShellOpts *opts) {
             // DONE: execute command
             execute_command(tokens);
         }
-    exit:
 
-        history_save(&state.history);
-        history_free(&state.history);
+        printf("\n\n");
 
-        aliasstore_save(&state.alias_store);
-        aliasstore_free(&state.alias_store);
+        const char *format_str = "INFO: %-35s";
+        { // history save
+            printf(format_str, "Saving history...");
+            history_save(&state.history);
+            history_free(&state.history);
+            printf(" [DONE]\n");
+        }
 
-        printf("\n");
-        printf("\n");
-        printf("Restoring original path...\n");
-        int err = setenv(ENV_PATH, prelude_path, true);
-        assert(!err);
-        printf("Path restored to:\n");
-        printf("\"%s\"\n", prelude_path);
+        { // alias save
+            printf(format_str, "Saving aliases...");
+            aliasstore_save(&state.alias_store);
+            aliasstore_free(&state.alias_store);
+            printf(" [DONE]\n");
+        }
 
-        printf("Exiting normally...\n");
+        { // restore path
+            printf(format_str, "Restoring original path...");
+            int err = setenv(ENV_PATH, prelude_path, true);
+            assert(!err);
+            printf(" [DONE]\n");
+        }
+
+        printf("INFO: Exiting normally... See you later!\n");
     }
     return 0;
 }
