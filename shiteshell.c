@@ -1,11 +1,9 @@
-#define _POSIX_C_SOURCE 200809L
-#include "alias.h"
-#include "commands.h"
-#include "history.h"
+#include "shiteshell.h"
 #include "io.h"
 #include "shared.h"
 #include <assert.h>
 #include <errno.h> // errno
+#include <linux/limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,10 +12,266 @@
 #include <sys/wait.h>  // wait
 #include <unistd.h>    // fork, execl
 
-#define PATH_LIMIT 4096 // TODO: find out the path limit on linux
-// The maximum path length is 4096 characters.
+typedef enum {
+    CMD_NOT_RECOGNIZED,
+    CMD_INVALID_FORMAT,
+    CMD_SUCCESS,
+} CmdResult;
 
-void display_prompt() { printf("> "); }
+/**
+ * Checks if a colon-separated path list is valid. The list is valid if
+ * all of the paths within it are valid directories.
+ *
+ * @param path, colon-separated list of paths
+ * @param path_len, the length of the path str
+ * @return `true` if the path list is valid, `false` otherwise.
+ * */
+bool _is_valid_path(const char *path, int path_len) {
+    // duplicate the path as to not overwrite it
+    char path_dup[path_len + 1];
+    memcpy(path_dup, path, sizeof(path_dup));
+    char delim[] = ":";
+    char *dir_path = strtok(path_dup, delim);
+    while (dir_path) {
+        if (!directory_exists(dir_path))
+            // TODO: return this invalid path, so that we can be more specific
+            // to the user about the issue.
+            return false;
+        dir_path = strtok(NULL, delim);
+    }
+    return true;
+}
+
+CmdResult cmd_getpath(char *const argv[]) {
+    const char *const name = argv[0];
+    if (!STR_EQ(name, "getpath")) {
+        return CMD_NOT_RECOGNIZED;
+    }
+    if (argv[1]) {
+        fprintf(stderr, "ERROR: `%s` expects no arguments.\n", name);
+        return CMD_INVALID_FORMAT;
+    }
+
+    const char *path = getenv(ENV_PATH);
+    assert(path);
+    printf("%s\n", path);
+    return CMD_SUCCESS;
+}
+
+CmdResult cmd_setpath(char *const argv[]) {
+    const char *const name = argv[0];
+    if (!STR_EQ(name, "setpath")) {
+        return CMD_NOT_RECOGNIZED;
+    }
+
+    const char *new_path = argv[1];
+    const char *null = argv[2];
+    if (!new_path || null != NULL) {
+        fprintf(
+            stderr,
+            "ERROR: Invalid arguments. "
+            "`%s` expects one argument; a colon-separated list to set the path "
+            "to.\n",
+            name);
+        return CMD_INVALID_FORMAT;
+    }
+
+    if (!_is_valid_path(new_path, strlen(new_path))) {
+        fprintf(stderr,
+                "ERROR: path provided is invalid. It must be "
+                "colon-separated and all paths within must be valid.\n");
+        return CMD_INVALID_FORMAT;
+    }
+
+    int err = setenv(ENV_PATH, new_path, true);
+    assert(!err);
+
+    printf("\"%s\" has been set.\n", ENV_PATH);
+    return CMD_SUCCESS;
+}
+
+CmdResult cmd_change_dir(char *const argv[]) {
+    const char *name = argv[0];
+    const char *path = argv[1];
+    const char *null = argv[2];
+    if (!STR_EQ(name, "cd")) {
+        return CMD_NOT_RECOGNIZED;
+    }
+    if (null != NULL) {
+        fprintf(
+            stderr,
+            "ERROR: invalid arguments."
+            "`%s` requires one optional argument for the path to change to.\n",
+            name);
+        return CMD_INVALID_FORMAT;
+    }
+
+    if (path) {
+        change_directory(path);
+    } else {
+        change_directory("~"); // default to user home
+    }
+    return CMD_SUCCESS;
+}
+
+CmdResult cmd_alias(ShiteShellState *state, char *const argv[]) {
+    const char *name = argv[0];
+    if (!STR_EQ(name, "alias")) {
+        return CMD_NOT_RECOGNIZED;
+    }
+
+    const char *alias_name = argv[1];
+    if (!alias_name) {
+        aliasstore_print(&state->alias_store);
+        return CMD_SUCCESS;
+    }
+
+    if (STR_EQ(alias_name, "alias")) {
+        fprintf(stderr, "ERROR: cannot create alias with name \"alias\", "
+                        "restricted name.\n");
+        return CMD_INVALID_FORMAT;
+    }
+
+    if (STR_EQ(alias_name, "unalias")) {
+        fprintf(stderr, "ERROR: cannot create alias with name \"unalias\", "
+                        "restricted name.\n");
+        return CMD_INVALID_FORMAT;
+    }
+
+    char alias_cmd[MAX_COMMAND_SIZE] = {0};
+
+    if (!argv[2]) {
+        fprintf(stderr, "ERROR: alias expects a command to be aliased.\n");
+        return CMD_INVALID_FORMAT;
+    }
+
+    for (int i = 2; argv[i] != NULL; i++) {
+        if (i > 2) {
+            strcat(alias_cmd, " ");
+        }
+        strcat(alias_cmd, argv[i]);
+    }
+
+    aliasstore_add_alias(&state->alias_store, strdup(alias_name),
+                         strdup(alias_cmd));
+    return CMD_SUCCESS;
+}
+
+CmdResult cmd_unalias(ShiteShellState *state, char *const argv[]) {
+    const char *name = argv[0];
+    if (!STR_EQ(name, "unalias")) {
+        return CMD_NOT_RECOGNIZED;
+    }
+
+    const char *alias_name = argv[1];
+    if (!alias_name) {
+        fprintf(stderr, "ERROR: unalias expects an alias name.\n");
+        return CMD_INVALID_FORMAT;
+    }
+
+    Alias *alias = aliasstore_get_by_name(&state->alias_store, alias_name);
+    if (!alias) {
+        fprintf(stderr, "ERROR: no such alias with name \"%s\".\n", alias_name);
+        return CMD_INVALID_FORMAT;
+    }
+
+    aliasstore_rm(&state->alias_store, &alias);
+    return CMD_SUCCESS;
+}
+
+CmdResult cmd_history_print(ShiteShellState *state, char *const argv[]) {
+    const char *name = argv[0];
+    const char *null = argv[1];
+    if (!STR_EQ(name, "history")) {
+        return CMD_NOT_RECOGNIZED;
+    }
+
+    if (null != NULL) {
+        return CMD_INVALID_FORMAT;
+    }
+
+    history_print(&state->history);
+    return CMD_SUCCESS;
+}
+
+CmdResult cmd_history_invoke(ShiteShellState *state, char *const argv[],
+                             char *new_input_out) {
+    const char *name = argv[0];
+    const char *null = argv[1];
+    if (!STR_STARTSWITH(name, "!")) {
+        return CMD_NOT_RECOGNIZED;
+    }
+    if (null != NULL) {
+        fprintf(stderr, "ERROR: too many arguments.\n");
+        return CMD_INVALID_FORMAT;
+    }
+
+    const int count = history_count(&state->history);
+    if (count == 0) {
+        printf("INFO: History is empty\n");
+        return CMD_INVALID_FORMAT;
+    }
+
+    long offset = 0;
+    bool err_parse = false;
+    if (STR_EQ(name, "!!")) {
+        offset = -1;
+    } else {
+        const char *number_part = name + strlen("!");
+        // We are assuming tokenisation of spaces
+        assert(!STR_STARTSWITH(number_part, " "));
+
+        // TODO: break out number parsing
+        if (STR_STARTSWITH(number_part, "+")) { // we don't accept numbers
+            // starting with '+'
+            err_parse = true;
+        } else {
+            errno = 0; // reset errno so we can read it
+            char *end = NULL;
+            offset = strtol(number_part, &end, 10);
+            err_parse = errno == ERANGE || !STR_EQ(end, "");
+        }
+    }
+
+    if (err_parse) {
+        fprintf(stderr, "ERROR: invalid number format.\n");
+        return CMD_INVALID_FORMAT;
+    }
+
+    const int idx = (offset > 0) ? offset - 1 : count + offset;
+    const char *history_item = history_get(&state->history, idx);
+    if (offset == 0 || !history_item) {
+        fprintf(stderr, "ERROR: no such history item.\n");
+        return CMD_INVALID_FORMAT;
+    }
+
+    strcpy(new_input_out, history_item);
+    return CMD_SUCCESS;
+}
+
+#define TOK_MATCH(tokens, ...) tok_match(tokens, (char *[]){__VA_ARGS__, NULL})
+
+void display_prompt() {
+    char cwd[PATH_MAX];
+    if (!getcwd(cwd, sizeof(cwd))) {
+        // TODO: maybe we don't want to crash here?
+        perror("getcwd() error");
+        exit(-1);
+    }
+
+    const char *format_str = "%s $> ";
+    // try to remove home path
+    const char *home_path = (const char *)getenv("HOME");
+    if (STR_STARTSWITH(cwd, home_path)) {
+        char pretty_path[PATH_MAX];
+        const char *slice = cwd + strlen(home_path);
+        strcpy(pretty_path, "~");
+        strcat(pretty_path, slice);
+        printf(format_str, pretty_path);
+    } else {
+        printf(format_str, cwd);
+    }
+}
 
 /**
  * Reads the user input from stdin and writes into the supplied buffer
@@ -100,6 +354,20 @@ char **tokenize_input(char buf[], char *token_buf[]) {
     return token_buf;
 }
 
+bool tok_match(char **tokens, char **pattern) {
+    for (int i = 0;; i++) {
+        const char *tok = tokens[i];
+        const char *pat = pattern[i];
+        if (tok == NULL && pat == NULL)
+            break;
+        else if (tok == NULL || pat == NULL)
+            return false;
+        else if (!STR_EQ(tok, pat))
+            return false;
+    }
+    return true;
+}
+
 /**
  * Attempts to execute the specified program, with the supplied arguments.
  * Errors are printed to stderr.
@@ -132,7 +400,6 @@ void exec(const char *filename, char *const argv[]) {
                 fprintf(stderr, " %s", argv[i]);
             }
             fprintf(stderr, ": %s\n", strerror(errno));
-            
         }
         // NOTE: make sure to end/unalive/kill the child process
         exit(errno);
@@ -150,41 +417,41 @@ void exec(const char *filename, char *const argv[]) {
  * */
 void execute_command(char *const tokens[]) {
     if (!tokens || !tokens[0])
-    return;
-
-    if (try_run_internal_command(tokens[0], tokens))
         return;
 
     exec(tokens[0], tokens);
 }
 
 void print_banner() {
-    printf("  _____ _     _ _        _____ _          _ _  \n");
-    printf(" / ____| |   (_) |      / ____| |        | | | \n");
-    printf("| (___ | |__  _| |_ ___| (___ | |__   ___| | | \n");
-    printf(" \\___ \\| '_ \\| | __/ _ \\\\___ \\| '_ \\ / _ \\ | | \n");
-    printf(" ____) | | | | | ||  __/____) | | | |  __/ | |\n");
-    printf("|_____/|_| |_|_|\\__\\___|_____/|_| |_|\\___|_|_| \n");
-    printf("                      W0oco0W                  \n");
-    printf("                     N0occcdK                  \n");
-    printf("                 WN0kdlcllllkN                 \n");
-    printf("              WX0kolcclooolcdX                 \n");
-    printf("         WNKOxdlllooooodol::lk0NW              \n");
-    printf("       WKxl:::cllloolllc:;;:clodOXW            \n");
-    printf("      Xkc;;;:clcc:::::::cclooooooxKW           \n");
-    printf("     Xd:;;;;;::ccclllloooooooooooldK           \n");
-    printf("    W0c:coxkOOkdlccllllldk0000Oxlcl0W          \n");
-    printf("     0oxKW NK00KKklcccoOKK00XWWN0do0W          \n");
-    printf("  WXOdON WOc,'';dKkc:l0Oc,'';dX  Xxx0N         \n");
-    printf(" NOocl0  Xc.....'k0l;d0l.....,xW WOooxKW       \n");
-    printf("Xxc::ckW Nx,....c0Oc;l0x;...'c0  Nkoood0       \n");
-    printf("kc::::lkXWWKkdxOKOdlccoO0kdxONWWNOxddood       \n");
-    printf("d:::::ccoxO0KK0kdlllllcldk0KKK0Oxdddoood       \n");
-    printf("d::;:::::::ccc;,,,,,,,,,,,:loooooolllllo       \n");
-    printf("Oc;;;;;;::::::;,''''''''',:cccccccc::::l       \n");
-    printf("NOc;;;;;;;;;;;;;,,,,,,,,,;;;;;;;;;;;;;lO       \n");
-    printf(" WKxl;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,:lkXW       \n");
-    printf("   WXOdc:;;;;;;;;;;;;;;;;;;;;;;;:cdONW         \n");
+    printf("+-------------------------------------------------+\n"
+           "|   _____ _     _ _        _____ _          _ _   |\n"
+           "|  / ____| |   (_) |      / ____| |        | | |  |\n"
+           "| | (___ | |__  _| |_ ___| (___ | |__   ___| | |  |\n"
+           "|  \\___ \\| '_ \\| | __/ _ \\\\___ \\| '_ \\ / _ \\ | |  |\n"
+           "|  ____) | | | | | ||  __/____) | | | |  __/ | |  |\n"
+           "| |_____/|_| |_|_|\\__\\___|_____/|_| |_|\\___|_|_|  |\n"
+           "|                                                 |\n"
+           "|                          W0oco0W                |\n"
+           "|                         N0occcdK                |\n"
+           "|                     WN0kdlcllllkN               |\n"
+           "|                  WX0kolcclooolcdX               |\n"
+           "|             WNKOxdlllooooodol::lk0NW            |\n"
+           "|           WKxl:::cllloolllc:;;:clodOXW          |\n"
+           "|          Xkc;;;:clcc:::::::cclooooooxKW         |\n"
+           "|         Xd:;;;;;::ccclllloooooooooooldK         |\n"
+           "|        W0c:coxkOOkdlccllllldk0000Oxlcl0W        |\n"
+           "|         0oxKW NK00KKklcccoOKK00XWWN0do0W        |\n"
+           "|      WXOdON WOc,'';dKkc:l0Oc,'';dX  Xxx0N       |\n"
+           "|     NOocl0  Xc.....'k0l;d0l.....,xW WOooxKW     |\n"
+           "|    Xxc::ckW Nx,....c0Oc;l0x;...'c0  Nkoood0     |\n"
+           "|    kc::::lkXWWKkdxOKOdlccoO0kdxONWWNOxddood     |\n"
+           "|    d:::::ccoxO0KK0kdlllllcldk0KKK0Oxdddoood     |\n"
+           "|    d::;:::::::ccc;,,,,,,,,,,,:loooooolllllo     |\n"
+           "|    Oc;;;;;;::::::;,''''''''',:cccccccc::::l     |\n"
+           "|    NOc;;;;;;;;;;;;;,,,,,,,,,;;;;;;;;;;;;;lO     |\n"
+           "|     WKxl;,,,,,,,,,,,,,,,,,,,,,,,,,,,,,:lkXW     |\n"
+           "|       WXOdc:;;;;;;;;;;;;;;;;;;;;;;;:cdONW       |\n"
+           "+-------------------------------------------------+\n");
 }
 
 /**
@@ -192,143 +459,188 @@ void print_banner() {
  *
  * @return error code.
  * */
-int run() {
-    print_banner();
+int run(ShiteShellOpts *opts) {
+    if (opts->no_banner == false)
+        print_banner();
 
     // DONE: save the current path
     char *prelude_path = strdup(getenv(ENV_PATH));
     assert(prelude_path);
+    DEFER(shite_free((void **)&prelude_path)) {
 
-    // DONE: find the user home directory from the environment
-    // DONE: set current working directory to the user home directory
-    change_directory("~");
+        // DONE: find the user home directory from the environment
+        // DONE: set current working directory to the user home directory
+        change_directory("~");
 
-    // DONE: load history
-    struct history_arr history;
-    create_history(&history);
-    load_history(&history);
+        ShiteShellState state = {0};
+        // DONE: load history
+        history_load(&state.history);
 
-    // DONE: load aliases
-    load_aliases();
+        // DONE: load aliases
+        aliasstore_load(&state.alias_store);
 
-    char input_buf[MAX_COMMAND_SIZE] = {0};
+        while (true) {
+            display_prompt();
 
-    // NOTE: we set the token_buf to the size of the input buf since it
-    // guarantees we'll never run out of space in the token buffer. char
-    // *token_buf[MAX_COMMAND_SIZE] = {0};
+            char input_buf[MAX_COMMAND_SIZE] = {0};
+            const char *input = get_input(input_buf, sizeof(input_buf));
 
-
-    while (true) {
-        display_prompt();
-
-        char *input = get_input(input_buf, sizeof(input_buf));
-
-        // NOTE: special case for CTRL+D
-        if (!input)
-            break;
-
-        // Skip empty input
-        if (input[0] == '\0')
-            continue;
-
-        char command_buf[MAX_COMMAND_SIZE] = {0};
-        
-
-        strcpy(command_buf, input);
-
-        char history_expanded_buf[MAX_COMMAND_SIZE] = {0}; // buffer to hold comand found in history
-
-        //things to stop infinite loops and adding unwanted things to history
-        bool used_history = false;
-        bool changed = true;
-        bool expanded_alias[MAX_COMMAND_SIZE][MAX_ALIASES] = {0};
-
-        while (changed) {
-            changed = false;
-
-            char temp_buf[MAX_COMMAND_SIZE];
-            strcpy(temp_buf, command_buf);
-
-            char *tokens[MAX_COMMAND_SIZE] = {0};
-            tokenize_input(temp_buf, tokens);
-            if (!tokens[0])
+            // NOTE: special case for CTRL+D
+            if (!input)
                 break;
 
-            // load history command if input is history invoke
-            if (tokens[0][0] == '!') {
-                if (tokens[1] != NULL) {
-                    printf("ERROR: history commands do not take arguments.\n");
+            // Skip empty input
+            if (STR_EQ(input, ""))
+                continue;
+
+            char mut_input[MAX_COMMAND_SIZE] = {0};
+            strcpy(mut_input, input);
+            char *tokens[MAX_COMMAND_SIZE] = {0};
+
+            const int ITERATION_LIMIT = 64;
+            bool push_to_history = true;
+            bool re_prompt = false;
+            bool exit = false;
+            for (int iteration = 0;; iteration++) {
+                if (re_prompt)
+                    break;
+
+                if (iteration >= ITERATION_LIMIT) {
+                    fprintf(stderr,
+                            "ERROR: alias resolution has reached "
+                            "iteration limit, (%d). Maybe there is a cycle "
+                            "within your aliases?\n",
+                            ITERATION_LIMIT);
+                    re_prompt = true;
+                    continue;
+                }
+
+                tokenize_input(mut_input, tokens);
+                if (!tokens[0]) {
+                    re_prompt = true;
+                    continue;
+                }
+
+                // NOTE: in order for alias and unalias commands to not act
+                // weird we need to special case these commands _before_ alias
+                // resolution.
+                if (CMD_NOT_RECOGNIZED != cmd_alias(&state, tokens)) {
+                    re_prompt = true;
+                    continue;
+                }
+
+                if (CMD_NOT_RECOGNIZED != cmd_unalias(&state, tokens)) {
+                    re_prompt = true;
+                    continue;
+                }
+
+                char new_input[MAX_COMMAND_SIZE] = {0};
+                switch (aliasstore_resolve_alias(
+                    &state.alias_store, tokens, new_input, sizeof(new_input))) {
+                case ARR_NO_CHANGE:
+                    break;
+                case ARR_SUCCESS:
+                    strcpy(mut_input, new_input);
+                    continue;
+                    break;
+                case ARR_FAILURE:
+                    fprintf(
+                        stderr,
+                        "ERROR: alias resolution expanded beyond the maximum "
+                        "supported command size.\n");
+                    re_prompt = true;
+                    continue;
+                }
+
+                if (TOK_MATCH(tokens, "exit")) {
+                    exit = true;
                     break;
                 }
-                used_history = true;
-                char *loaded =
-                  load_history_command(&history, history_expanded_buf, command_buf);
-                if (!loaded) {
-                  break;
+
+                if (CMD_NOT_RECOGNIZED != cmd_history_print(&state, tokens)) {
+                    push_to_history = false;
+                    re_prompt = true;
+                    continue;
                 }
 
-                strcpy(command_buf, loaded);
-                changed = true;
+                switch (cmd_history_invoke(&state, tokens, mut_input)) {
+                case CMD_INVALID_FORMAT:
+                    re_prompt = true;
+                    continue;
+                case CMD_SUCCESS:
+                    push_to_history = false;
+                    continue;
+                default:
+                    break;
+                }
+
+                break;
+            }
+
+            if (push_to_history) {
+                // only push to history if the new command doesn't match the
+                // last history item
+                const char *history_last = history_peek_back(&state.history);
+                if (history_last) {
+                    char history_last_buf[MAX_COMMAND_SIZE] = {0};
+                    strcpy(history_last_buf, history_last);
+                    char *history_last_tok[MAX_COMMAND_SIZE] = {0};
+                    tokenize_input(history_last_buf, history_last_tok);
+
+                    char og_input[MAX_COMMAND_SIZE] = {0};
+                    strcpy(og_input, input);
+                    char *og_input_tok[MAX_COMMAND_SIZE] = {0};
+                    tokenize_input(og_input, og_input_tok);
+
+                    if (!tok_match(og_input_tok, history_last_tok))
+                        history_push_back(&state.history, strdup(input));
+                } else {
+                    history_push_back(&state.history, strdup(input));
+                }
+            }
+
+            if (exit)
+                break;
+
+            if (re_prompt)
                 continue;
-            }
 
-            // resolve aliases
-            char alias_buf[MAX_COMMAND_SIZE] = {0};
-            resolve_alias(command_buf, alias_buf, expanded_alias);
+            if (CMD_SUCCESS == cmd_getpath(tokens))
+                continue;
+            if (CMD_SUCCESS == cmd_setpath(tokens))
+                continue;
+            if (CMD_SUCCESS == cmd_change_dir(tokens))
+                continue;
 
-            if (strcmp(alias_buf, command_buf) != 0) {
-                strcpy(command_buf, alias_buf);
-                changed = true;
-            }
+            // DONE: execute command
+            execute_command(tokens);
         }
 
-        char *tokens[MAX_COMMAND_SIZE] = {0};
-        tokenize_input(command_buf, tokens);
-        if (!tokens[0])
-         continue;
+        printf("\n\n");
 
-            // command is not history invoke
-        if (used_history == false) {
-            add_command_to_history(&history, input);
+        const char *format_str = "INFO: %-35s";
+        { // history save
+            printf(format_str, "Saving history...");
+            history_save(&state.history);
+            history_free(&state.history);
+            printf(" [DONE]\n");
         }
 
-        // print whole history when input is "history"
-        if (STR_EQ("history", tokens[0])) {
-            if (tokens[1]) {
-                fprintf(stderr, "ERROR: history does not take any arguments.\n");
-            } else {
-                print_commands(&history);
-            }
-            continue;
+        { // alias save
+            printf(format_str, "Saving aliases...");
+            aliasstore_save(&state.alias_store);
+            aliasstore_free(&state.alias_store);
+            printf(" [DONE]\n");
         }
 
-        // NOTE: special case handle internal command exit
-        if (STR_EQ("exit", tokens[0]) && !tokens[1])
-            break;
+        { // restore path
+            printf(format_str, "Restoring original path...");
+            int err = setenv(ENV_PATH, prelude_path, true);
+            assert(!err);
+            printf(" [DONE]\n");
+        }
 
-        // DONE: execute command
-        execute_command(tokens);
+        printf("INFO: Exiting normally... See you later!\n");
     }
-
-    save_history(&history);
-
-    save_aliases();
-
-    printf("\n");
-    printf("\n");
-    printf("Restoring original path...\n");
-    int err = setenv(ENV_PATH, prelude_path, true);
-    assert(!err);
-    printf("Path restored to:\n");
-    printf("\"%s\"\n", prelude_path);
-
-    printf("Exiting normally...\n");
-
-    for (int i = 0; i < HIST_SIZE; i++) {
-        if (history.commands[i])
-            free(history.commands[i]);
-    }
-    free(prelude_path);
-
     return 0;
 }

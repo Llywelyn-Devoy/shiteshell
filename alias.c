@@ -1,236 +1,227 @@
-#include "shared.h"
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-
-
-// FIXME: this is nasty, we don't want this weird two-way dependency
 #include "alias.h"
-#include "shiteshell.h"
+#include "io.h"
+#include "shared.h"
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#define ALIAS_STORE_SIZE 20
+#define ALIAS_STORE_FILENAME ".shiteshell_aliases"
 
-Alias aliases[MAX_ALIASES];
-int no_alias = 0;
+char *aliasstore_get_filepath() {
+    const char *home = (char *)getenv("HOME");
 
-/**
- * Returns the index of the alias, otherwise -1.
- *
- * @param name name of the alias
- * @return -1 if the alias is not found, otherwise the index of the alias.
- * */
-int index_of_alias(const char *name) {
-    for (int i = 0; i < no_alias; i++) {
-        if (strcmp(aliases[i].name, name) == 0)
-            return i;
-    }
-    return -1;
+    const int buf_size = snprintf(NULL, 0, "%s/%s", home, ALIAS_STORE_FILENAME);
+    char *buf = malloc((buf_size + 1) * sizeof(buf[0]));
+    const int written =
+        snprintf(buf, buf_size + 1, "%s/%s", home, ALIAS_STORE_FILENAME);
+    assert(buf_size == written);
+    return buf;
 }
 
-/**
- * Takes a null-terminated array of tokens and attempts to create a new alias.
- * Errors are written to stderr
- *
- * @param tokens[], null-terminated array of token strings.
- * */
-void alias_command(char *const tokens[]) {
-    const char *alias_name = tokens[1];
-    char *const *rest = &tokens[2];
+Alias *alias_create(char *name, char *cmd) {
+    Alias *new = malloc(sizeof(Alias));
+    assert(new);
+    new->name = name;
+    new->cmd = cmd;
+    new->prev = NULL;
+    new->next = NULL;
+    return new;
+}
 
-    if (!alias_name) {
-        if (no_alias == 0) {
-            printf("INFO: There are no aliases to show you\n");
-        }
-        for (int i = 0; i < no_alias; i++) {
-            printf("%s = '%s'\n", aliases[i].name, aliases[i].command);
-        }
-        return;
-    }
+void alias_free(Alias **alias_ptr) {
+    shite_free((void **)&(*alias_ptr)->name);
+    shite_free((void **)&(*alias_ptr)->cmd);
+    shite_free((void **)alias_ptr);
+}
 
-    if (STR_EQ(ALIAS_COMMAND_NAME, alias_name)) {
-        fprintf(stderr, "ERROR: cannot create alias with name \"%s\".\n",
-                ALIAS_COMMAND_NAME);
-        return;
-    }
-    if (STR_EQ(UNALIAS_COMMAND_NAME, alias_name)) {
-        fprintf(stderr, "ERROR: cannot create alias with name \"%s\".\n",
-                UNALIAS_COMMAND_NAME);
-        return;
-    }
+Alias *_alias_parse_from_line(char *str) {
+    // TODO: use strtok here I think...
+    char *space = strchr(str, ' ');
+    if (!space)
+        return NULL;
+    *space = '\0';
 
-    if (!rest[0]) {
-        fprintf(stderr, "ERROR: must supply a command to alias.\n");
-        return;
-    }
+    const char *name = str;
+    const char *cmd = space + 1;
+    if (strlen(name) <= 0 || strlen(cmd) <= 0)
+        return NULL;
 
-    char command[MAX_COMMAND_SIZE] = {0};
-    for (int i = 2; tokens[i]; i++) {
-        strcat(command, tokens[i]);
-        if (tokens[i + 1])
-            strcat(command, " ");
-    }
+    return alias_create(strdup(name), strdup(cmd));
+}
 
-    int alias_idx = index_of_alias(alias_name);
-
-    if (alias_idx >= 0) {
-        printf("INFO: redefined alias \"%s\".\n", alias_name);
-        strcpy(aliases[alias_idx].command, command);
+void aliasstore_push(AliasStore *store, Alias *alias) {
+    if (store->head == NULL) {
+        assert(store->tail == NULL);
+        store->head = alias;
+        store->tail = alias;
     } else {
-        if (no_alias >= MAX_ALIASES) {
-            fprintf(stderr,
-                    "ERROR: wooh there bucko stop renaming stuff 10 max.\n");
-            return;
-        }
-        strcpy(aliases[no_alias].name, alias_name);
-        strcpy(aliases[no_alias].command, command);
-        no_alias++;
+        alias->prev = store->tail;
+        store->tail->next = alias;
+        store->tail = alias;
     }
 }
 
-/**
- * Takes a null-terminated array of tokens and attempts to remove a defined
- * alias. Errors are written to stderr
- *
- * @param tokens[], null-terminated array of token strings.
- * */
-void unalias_command(char *const tokens[]) {
-    if (!tokens[1]) {
-        fprintf(stderr, "ERROR: must supply an alias to unalias.\n");
+int aliasstore_count(AliasStore *store) {
+    assert((store->head == NULL) == (store->tail == NULL));
+    int count = 0;
+    FOREACH_ALIAS(_, store) { count++; }
+    return count;
+}
+
+void aliasstore_rm(AliasStore *store, Alias **alias_ptr) {
+    if (0 == aliasstore_count(store))
+        return;
+
+    Alias *alias = *alias_ptr;
+    if (!alias_ptr || !alias)
+        return;
+
+    const bool has_one_alias = 1 == aliasstore_count(store);
+    if (alias == store->head)
+        store->head = alias->next;
+    if (alias == store->tail)
+        store->tail = alias->prev;
+
+    if (has_one_alias)
+        assert(!store->head && !store->tail);
+
+    if (alias->prev)
+        alias->prev->next = alias->next;
+    if (alias->next)
+        alias->next->prev = alias->prev;
+
+    alias_free(alias_ptr);
+}
+
+bool aliasstore_load(AliasStore *store) {
+    bool success = true;
+    int line_count = 0;
+    char **lines = NULL;
+    const char *filepath = aliasstore_get_filepath();
+    DEFER(shite_free((void **)&filepath)) {
+        read_lines(filepath, &lines, &line_count);
+    }
+    if (line_count > ALIAS_STORE_SIZE) {
+        // TODO: This should probably be somewhere else
+        fprintf(stderr, "ERROR: invalid history save file at %s.\n",
+                ALIAS_STORE_FILENAME);
+        exit(-1);
+    }
+
+    store->head = NULL;
+    store->tail = NULL;
+    for (int i = 0; i < line_count; i++) {
+        char *line = lines[i];
+        Alias *a = _alias_parse_from_line(line);
+        if (!a) {
+            success = false;
+            break;
+        }
+        aliasstore_push(store, a);
+    }
+
+    for (int i = 0; i < line_count; i++) {
+        shite_free((void **)&lines[i]);
+    }
+    shite_free((void **)&lines);
+
+    return success;
+}
+
+bool aliasstore_save(AliasStore *store) {
+    const char *filepath = aliasstore_get_filepath();
+    FILE *fp = fopen(filepath, "w");
+    shite_free((void **)&filepath);
+    if (!fp) {
+        return false;
+    }
+
+    FOREACH_ALIAS(alias, store) {
+        fprintf(fp, "%s %s\n", alias->name, alias->cmd);
+    }
+
+    // TODO: error handling a bit here
+    fclose(fp);
+    return true;
+}
+
+void aliasstore_free(AliasStore *store) {
+    Alias *alias = store->head;
+    while (alias != NULL) {
+        Alias *next = alias->next;
+        alias_free(&alias);
+        alias = next;
+    }
+    store->head = NULL;
+    store->tail = NULL;
+}
+
+Alias *aliasstore_get_by_name(const AliasStore *store, const char *name) {
+    FOREACH_ALIAS(alias, store) {
+        if (STR_EQ(alias->name, name)) {
+            return alias;
+        }
+    }
+    return NULL;
+}
+
+void aliasstore_add_alias(AliasStore *store, char *name, char *cmd) {
+    Alias *existing_alias = aliasstore_get_by_name(store, name);
+    if (existing_alias) {
+        shite_free((void **)&name);
+        shite_free((void **)&existing_alias->cmd);
+        existing_alias->cmd = cmd;
+
+        printf("INFO: redefining alias \"%s\".\n", existing_alias->name);
         return;
     }
 
-    int alias_idx = index_of_alias(tokens[1]);
-    if (alias_idx < 0) {
-        fprintf(stderr, "ERROR: no such alias.\n");
-        return;
-    }
-
-    for (int i = alias_idx; i < no_alias - 1; i++) {
-        aliases[i] = aliases[i + 1];
-    }
-    no_alias--;
+    aliasstore_push(store, alias_create(name, cmd));
 }
 
-/**
- * Takes a raw input string, and attempts resolve all tokens that are aliases.
- * This operation is done, exactly once for each alias found.
- *
- * @param input, the raw string from the user
- * @param output, a buffer to write the resolved input string into. Buffer must
- * be atleast MAX_COMMAND_SIZE in size. Behaviour is undefined is the buffer
- * isn't big enough.
- * */
-void resolve_alias(const char *input, char *output, bool expanded_alias[MAX_COMMAND_SIZE][MAX_ALIASES]) {
+bool mystrcat(char *dest, int dest_buf_size, int *dest_len, const char *src) {
+    const int src_len = strlen(src);
+    if (*dest_len + src_len + 1 > dest_buf_size)
+        return false;
 
-    char current[MAX_COMMAND_SIZE];
-    strcpy(current, input);
-
-    while (1) {
-
-        char work[MAX_COMMAND_SIZE];
-        strcpy(work, current);
-
-        char *tokens[MAX_COMMAND_SIZE] = {0};
-        tokenize_input(work, tokens);
-
-        if (!tokens[0])
-            break;
-
-        if (strcmp(tokens[0], UNALIAS_COMMAND_NAME) == 0)
-            break;
-
-        if (strcmp(tokens[0], ALIAS_COMMAND_NAME) == 0)
-            break;
-
-        char next[MAX_COMMAND_SIZE] = {0};
-        bool changed = false;
-
-        for (int i = 0; tokens[i]; i++) {
-
-            int id = index_of_alias(tokens[i]);
-
-            if (id >= 0 && !expanded_alias[i][id]) {
-
-                strncat(next, aliases[id].command, MAX_COMMAND_SIZE - strlen(next) - 1);
-
-                expanded_alias[i][id] = true;
-                changed = true;
-
-            } else {
-                if (id >= 0 && expanded_alias[i][id]){
-                    printf("INFO: Looping behaviour halted resolution of alias: %s\n", tokens[i]);
-                }
-
-                strncat(next, tokens[i], MAX_COMMAND_SIZE - strlen(next) - 1);
-            }
-
-            if (tokens[i + 1])
-                strncat(next, " ", MAX_COMMAND_SIZE - strlen(next) - 1);
-        }
-
-        if (!changed)
-            break;
-
-        strcpy(current, next);
-    }
-
-    strcpy(output, current);
+    strcat(dest, src);
+    *dest_len += src_len;
+    return true;
 }
 
-/**
- * Saves the current contents of the aliases data structure into the .aliases file
- * in the user's home directory.
- */
-void save_aliases() {
-    const char *home = getenv("HOME");
-    if (!home) return;
+AliasResolveResult aliasstore_resolve_alias(const AliasStore *store,
+                                            char **tokens, char *out_buf,
+                                            int out_buf_size) {
+    out_buf[0] = '\0';
+    int out_len = 0;
 
-    char path[MAX_COMMAND_SIZE];
-    snprintf(path, sizeof(path), "%s/.aliases", home);
+#define resolve_concat(s)                                                      \
+    do                                                                         \
+        if (!mystrcat(out_buf, out_buf_size, &out_len, s))                     \
+            return ARR_FAILURE;                                                \
+    while (0);
 
-    FILE *file = fopen(path, "w");
-    if (!file) {
-        // If file fails to open, we just return as per "abnormal conditions" check
-        return;
-    }
+    bool resolution_made = false;
+    for (int i = 0; tokens[i] != NULL; i++) {
+        if (i != 0)
+            resolve_concat(" ");
 
-    for (int i = 0; i < no_alias; i++) {
-        // Format: alias-name command
-        fprintf(file, "%s %s\n", aliases[i].name, aliases[i].command);
-    }
-
-    fclose(file);
-}
-
-
-void load_aliases() {
-    const char *home = getenv("HOME");
-    if (!home) return;
-
-    char path[MAX_COMMAND_SIZE];
-    snprintf(path, sizeof(path), "%s/.aliases", home);
-
-    FILE *file = fopen(path, "r");
-    if (!file) return; // Abnormal condition: file doesn't exist yet
-
-    char line[512]; // Max 512 as per instructions
-    while (fgets(line, sizeof(line), file) && no_alias < MAX_ALIASES) {
-        line[strcspn(line, "\n")] = 0; // Remove newline
-
-        // First token is alias name, rest is command
-        char *space = strchr(line, ' ');
-        if (space) {
-            *space = '\0';
-            char *name = line;
-            char *cmd = space + 1;
-
-            // Trim leading spaces for the command
-            while (*cmd == ' ') cmd++;
-
-            if (strlen(name) > 0 && strlen(cmd) > 0) {
-                strcpy(aliases[no_alias].name, name);
-                strcpy(aliases[no_alias].command, cmd);
-                no_alias++;
-            }
+        char *tok = tokens[i];
+        const Alias *alias = aliasstore_get_by_name(store, tok);
+        if (alias) {
+            resolve_concat(alias->cmd);
+            resolution_made |= true;
+        } else {
+            resolve_concat(tok);
         }
     }
-    fclose(file);
+
+    return resolution_made ? ARR_SUCCESS : ARR_NO_CHANGE;
+#undef resolve_concat
+}
+
+void aliasstore_print(const AliasStore *store) {
+    FOREACH_ALIAS(alias, store) {
+        printf("alias %s %s\n", alias->name, alias->cmd);
+    }
 }

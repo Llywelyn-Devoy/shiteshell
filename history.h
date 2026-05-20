@@ -1,26 +1,41 @@
-#ifndef HISTORY_H
-#define HISTORY_H
-#define HIST_SIZE 20
+#include "io.h"
+#include "shared.h"
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define HISTORY_SIZE 20
+#define HISTORY_FILENAME ".shiteshell_history"
 
-struct history_arr {
-    char *commands[HIST_SIZE];
-    int count;
-    int overflow;
-};
+typedef struct {
+    int capacity;
+    char **cmds;
+    int start;
+    int end;
+} History;
 
-void create_history(struct history_arr *history);
+char *history_get_filepath();
 
-const char *last_command(struct history_arr *history);
+void history_load(History *history);
 
-char *load_history_command(struct history_arr *history, char *dest_buf,
-                           const char *input_buf);
+int history_count(const History *history);
 
-void print_commands(struct history_arr *h);
+int history_is_full(const History *history);
 
-void add_command_to_history(struct history_arr *h, const char *command);
+char *history_pop_front(History *history);
 
-void load_history(struct history_arr *history);
+/*
+ * Appends the provided command to the history if there's space, otherwise
+ * replaces the oldest command. Returns the oldest command replaced or NULL.
+ * */
+char *history_push_back(History *history, char *cmd);
 
-void save_history(struct history_arr *history);
+char *history_get(const History *history, int index);
 
-#endif
+char *history_peek_back(const History *history);
+
+void history_print(const History *history);
+
+void history_free(History *history);
+
+bool history_save(const History *history);

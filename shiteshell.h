@@ -1,7 +1,14 @@
-#pragma once
-
+#include "alias.h"
+#include "history.h"
 #include <stdbool.h>
 
-int run();
+typedef struct {
+    bool no_banner : 1;
+} ShiteShellOpts;
 
-char **tokenize_input(char buf[], char *token_buf[]);
+typedef struct {
+    History history;
+    AliasStore alias_store;
+} ShiteShellState;
+
+int run(ShiteShellOpts *opts);
