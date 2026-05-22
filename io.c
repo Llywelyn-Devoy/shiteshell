@@ -1,5 +1,6 @@
 #include "shared.h"
 #include <assert.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,15 +51,41 @@ int count_lines(FILE *file) {
 #undef COUNT_LINES_BUF_SIZE
 }
 
+/**
+ * Reads the lines from a file.
+ *
+ * @param filepath, path to the file to read from.
+ * @param lines_out, out pointer to an array of strings. *This function takes
+ *                   care of allocation of the array*.
+ * @param line_count_out, pointer to a variable to store how many lines were
+ *                        read.
+ * @return `true` if the file was read successfully, false otherwise. An empty
+ * or non-present file still count as success, and results in a 0 allocation.
+ * */
 bool read_lines(const char *filepath, char ***lines_out, int *line_count_out) {
-    FILE *fp = fopen(filepath, "r");
-    if (!fp)
-        return false;
+    bool result = true;
 
+    FILE *fp = fopen(filepath, "r");
+    if (!fp) {
+        if (errno == ENOENT) {
+            // No such file
+            *line_count_out = 0;
+            // NOTE: see `man malloc` for behaviour when size is 0. On linux
+            // this is safe.
+            *lines_out = malloc(0);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    *lines_out = NULL;
     *line_count_out = count_lines(fp);
     rewind(fp);
-    if (*line_count_out < 0)
-        return false;
+    if (*line_count_out < 0) {
+        result = false;
+        goto exit;
+    }
 
     char **lines = malloc(*line_count_out * sizeof(lines[0]));
     assert(lines);
@@ -68,17 +95,24 @@ bool read_lines(const char *filepath, char ***lines_out, int *line_count_out) {
     while (fgets(buf, sizeof(buf), fp)) {
         char *newline = strrchr(buf, '\n');
         if (!newline) {
-            // BUG: returning without cleaning up
-            // invalid file as lines too big
-            return false;
+            goto cleanup_lines;
         } else {
             *newline = '\0';
         }
         lines[lines_idx++] = strdup(buf);
     }
     assert(*line_count_out == lines_idx);
-    fclose(fp);
 
     *lines_out = lines;
-    return true;
+
+exit:
+    fclose(fp);
+
+    return result;
+
+cleanup_lines:
+    for (int i = 0; i < lines_idx; i++)
+        free(lines[i]);
+    shite_free((void **)&lines);
+    goto exit;
 }

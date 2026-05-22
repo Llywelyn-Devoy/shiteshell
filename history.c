@@ -33,6 +33,8 @@ void history_load(History *history) {
     read_lines(filepath, &lines, &line_count);
     shite_free((void **)&filepath);
 
+    // TODO: bash truncates the file if it goes beyond the defined history
+    // limit. Maybe we want to do this?
     if (line_count > HISTORY_SIZE) {
         perror("ERROR: invalid history save file at ~/.shiteshell_history.");
         exit(-1);

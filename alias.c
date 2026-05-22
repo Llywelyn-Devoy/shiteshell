@@ -98,14 +98,19 @@ bool aliasstore_load(AliasStore *store) {
     int line_count = 0;
     char **lines = NULL;
     const char *filepath = aliasstore_get_filepath();
-    DEFER(shite_free((void **)&filepath)) {
-        read_lines(filepath, &lines, &line_count);
+    const bool file_read = read_lines(filepath, &lines, &line_count);
+    shite_free((void **)&filepath);
+    if (!file_read) {
+        perror("ERROR: unrecoverable error when reading alias store file.\n");
+        exit(1);
     }
+
     if (line_count > ALIAS_STORE_SIZE) {
-        // TODO: This should probably be somewhere else
-        fprintf(stderr, "ERROR: invalid history save file at %s.\n",
-                ALIAS_STORE_FILENAME);
-        exit(-1);
+        fprintf(stderr, "ERROR: alias store file violates alias limit of %d.\n",
+                ALIAS_STORE_SIZE);
+        // BUG: do we want to be cleaning up the files and memory here? Doesn't
+        // _really_ matter does it?
+        exit(1);
     }
 
     store->head = NULL;
