@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <errno.h> // errno
 #include <linux/limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,8 +28,9 @@ void shite_free(void **ptr) {
  * Resolves '~' to the user home directory.
  *
  * @param new_path, path to change to.
+ * @return true if successfully changed path, otherwise false.
  * */
-void change_directory(const char *new_path) {
+bool change_directory(const char *new_path) {
     assert(new_path);
 
     char scratch[PATH_MAX];
@@ -43,7 +45,9 @@ void change_directory(const char *new_path) {
     }
 
     int err = chdir(new_path);
-    if (err) {
+    if (!err) {
+        return true;
+    } else {
         // `man chdir` for the errors
         switch (errno) {
         case EACCES:       // perms issue
@@ -58,5 +62,6 @@ void change_directory(const char *new_path) {
             exit(errno);
             break;
         }
+        return false;
     }
 }

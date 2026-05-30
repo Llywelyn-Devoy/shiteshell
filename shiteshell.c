@@ -90,7 +90,7 @@ CmdResult cmd_setpath(char *const argv[]) {
     return CMD_SUCCESS;
 }
 
-CmdResult cmd_change_dir(char *const argv[]) {
+CmdResult cmd_change_dir(ShiteShellState *state, char *const argv[]) {
     const char *name = argv[0];
     const char *path = argv[1];
     const char *null = argv[2];
@@ -106,11 +106,25 @@ CmdResult cmd_change_dir(char *const argv[]) {
         return CMD_INVALID_FORMAT;
     }
 
-    if (path) {
-        change_directory(path);
+    if (STR_EQ(path, "-")) {
+        char *prev_path = shitevec_pop_back(&state->path_stack);
+        if (prev_path) {
+            change_directory(prev_path);
+            free(prev_path);
+        }
+    } else if (STR_EQ(path, "+")) {
+        // TODO: go forward in path stack history, this would require some
+        // changing of the current approach.
     } else {
-        change_directory("~"); // default to user home
+        if (!path) {
+            // NOTE: Default to home directory
+            path = "~";
+        }
+        char *curr_dir = getcwd(NULL, 0); // this does the mallocing
+        change_directory(path);
+        shitevec_push_back(&state->path_stack, curr_dir);
     }
+
     return CMD_SUCCESS;
 }
 
@@ -609,7 +623,7 @@ int run(ShiteShellOpts *opts) {
                 continue;
             if (CMD_SUCCESS == cmd_setpath(tokens))
                 continue;
-            if (CMD_SUCCESS == cmd_change_dir(tokens))
+            if (CMD_SUCCESS == cmd_change_dir(&state, tokens))
                 continue;
 
             // DONE: execute command

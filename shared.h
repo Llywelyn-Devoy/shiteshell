@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <string.h>
 
 #define DEFER(cleanup_func)                                                    \
@@ -25,5 +26,6 @@ void shite_free(void **ptr);
  * Resolves '~' to the user home directory.
  *
  * @param new_path, path to change to.
+ * @return true if successfully changed path, otherwise false.
  * */
-void change_directory(const char *new_path);
+bool change_directory(const char *new_path);
