@@ -36,4 +36,20 @@ void *shitevec_pop_back(ShiteVec *vec) {
     return vec->elems[--vec->count];
 }
 
+void *shitevec_peek_back(ShiteVec *vec) {
+    if (vec->count == 0)
+        // NOTE: this doesn't allow for NULLs to be stored in the shite vec :(
+        return NULL;
+
+    return vec->elems[vec->count - 1];
+}
+
+void **shitevec_get(ShiteVec *vec, size_t index) {
+    if (0 <= index && index < vec->count) {
+        return &vec->elems[index];
+    } else {
+        return NULL;
+    }
+}
+
 void shitevec_free(ShiteVec *vec) { shite_free((void **)&vec->elems); }

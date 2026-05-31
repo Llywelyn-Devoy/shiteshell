@@ -106,6 +106,11 @@ CmdResult cmd_change_dir(ShiteShellState *state, char *const argv[]) {
         return CMD_INVALID_FORMAT;
     }
 
+    if (!path) {
+        // NOTE: Default to home directory
+        path = "~";
+    }
+
     if (STR_EQ(path, "-")) {
         char *prev_path = shitevec_pop_back(&state->path_stack);
         if (prev_path) {
@@ -116,13 +121,25 @@ CmdResult cmd_change_dir(ShiteShellState *state, char *const argv[]) {
         // TODO: go forward in path stack history, this would require some
         // changing of the current approach.
     } else {
-        if (!path) {
-            // NOTE: Default to home directory
-            path = "~";
+        const char *curr_unresolved_path =
+            getcwd(NULL, 0); // this mallocs for us
+        char *curr_path =
+            realpath(curr_unresolved_path, NULL); // this mallocs for us
+        shite_free((void **)&curr_unresolved_path);
+
+        const bool did_change_dir = change_directory(path);
+        char *prev_path = shitevec_peek_back(&state->path_stack);
+        if (did_change_dir && (!prev_path || !STR_EQ(prev_path, curr_path))) {
+            // BUG: if the cd path is the same as the current one, it will still
+            // be added to the stack. For example if I'm in Documents and
+            // I `cd .` the current path will be added to the stack, when it
+            // shouldn't since this is a no-op. Also because tilde resolution
+            // happens within change_directory, tilde can be treated as a
+            // different path to the home directory.
+            shitevec_push_back(&state->path_stack, curr_path);
+        } else {
+            shite_free((void **)&curr_path);
         }
-        char *curr_dir = getcwd(NULL, 0); // this does the mallocing
-        change_directory(path);
-        shitevec_push_back(&state->path_stack, curr_dir);
     }
 
     return CMD_SUCCESS;
@@ -652,6 +669,13 @@ int run(ShiteShellOpts *opts) {
             int err = setenv(ENV_PATH, prelude_path, true);
             assert(!err);
             printf(" [DONE]\n");
+        }
+
+        { // Free path stack
+            size_t count = shitevec_count(&state.path_stack);
+            for (size_t i = 0; i < count; i++)
+                shite_free(shitevec_get(&state.path_stack, i));
+            shitevec_free(&state.path_stack);
         }
 
         printf("INFO: Exiting normally... See you later!\n");

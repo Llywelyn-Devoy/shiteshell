@@ -14,4 +14,8 @@ void shitevec_push_back(ShiteVec *vec, void *elem);
 
 void *shitevec_pop_back(ShiteVec *vec);
 
+void *shitevec_peek_back(ShiteVec *vec);
+
+void **shitevec_get(ShiteVec *vec, size_t index);
+
 void shitevec_free(ShiteVec *vec);
