@@ -111,6 +111,8 @@ CmdResult cmd_change_dir(ShiteShellState *state, char *const argv[]) {
         path = "~";
     }
 
+    // Maybe we want to move this stuff somewhere else. Not sure if it fits
+    // here...
     if (STR_EQ(path, "-")) {
         char *prev_path = shitevec_pop_back(&state->path_stack);
         if (prev_path) {
@@ -121,25 +123,35 @@ CmdResult cmd_change_dir(ShiteShellState *state, char *const argv[]) {
         // TODO: go forward in path stack history, this would require some
         // changing of the current approach.
     } else {
-        const char *curr_unresolved_path =
-            getcwd(NULL, 0); // this mallocs for us
-        char *curr_path =
-            realpath(curr_unresolved_path, NULL); // this mallocs for us
-        shite_free((void **)&curr_unresolved_path);
+        char *curr_path = NULL;
+        {
+            const char *curr_unresolved_path =
+                getcwd(NULL, 0); // this mallocs for us
+            curr_path =
+                realpath(curr_unresolved_path, NULL); // this mallocs for us
+            shite_free((void **)&curr_unresolved_path);
+        }
 
-        const bool did_change_dir = change_directory(path);
+        const bool changed_dir = change_directory(path);
+
+        char *new_path = NULL;
+        {
+            const char *new_unresolved_path =
+                getcwd(NULL, 0); // this mallocs for us
+            new_path =
+                realpath(new_unresolved_path, NULL); // this mallocs for us
+            shite_free((void **)&new_unresolved_path);
+        }
+
         char *prev_path = shitevec_peek_back(&state->path_stack);
-        if (did_change_dir && (!prev_path || !STR_EQ(prev_path, curr_path))) {
-            // BUG: if the cd path is the same as the current one, it will still
-            // be added to the stack. For example if I'm in Documents and
-            // I `cd .` the current path will be added to the stack, when it
-            // shouldn't since this is a no-op. Also because tilde resolution
-            // happens within change_directory, tilde can be treated as a
-            // different path to the home directory.
+        if (changed_dir && !STR_EQ(curr_path, new_path) &&
+            (!prev_path || !STR_EQ(prev_path, curr_path))) {
             shitevec_push_back(&state->path_stack, curr_path);
         } else {
             shite_free((void **)&curr_path);
         }
+
+        shite_free((void **)&new_path);
     }
 
     return CMD_SUCCESS;
