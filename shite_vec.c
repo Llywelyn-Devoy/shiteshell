@@ -6,7 +6,7 @@
 #define SHITEVEC_INIT_CAPACITY 16
 
 ShiteVec shitevec_create() {
-    ShiteVec vec = {.count = 0, .capacity = 0, .elems = malloc(0)};
+    ShiteVec vec = {0};
     return vec;
 }
 
@@ -45,7 +45,7 @@ void *shitevec_peek_back(ShiteVec *vec) {
 }
 
 void **shitevec_get(ShiteVec *vec, size_t index) {
-    if (0 <= index && index < vec->count) {
+    if (index < vec->count) {
         return &vec->elems[index];
     } else {
         return NULL;

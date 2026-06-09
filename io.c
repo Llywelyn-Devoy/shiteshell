@@ -72,7 +72,7 @@ bool read_lines(const char *filepath, char ***lines_out, int *line_count_out) {
             *line_count_out = 0;
             // NOTE: see `man malloc` for behaviour when size is 0. On linux
             // this is safe.
-            *lines_out = malloc(0);
+            *lines_out = NULL;
             return true;
         } else {
             return false;
