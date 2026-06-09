@@ -42,6 +42,25 @@ bool _is_valid_path(const char *path, int path_len) {
     return true;
 }
 
+/**
+ * Get the current working directory but resolved
+ *
+ * @return returns the current directory resolved using `realpath`. The returned
+ * string is malloc'ed.
+ * */
+char *get_cwd_resolved() {
+    char scratch[PATH_MAX];
+    char *cwd = getcwd(scratch, sizeof(scratch));
+    if (!cwd) {
+        // couldn't get the path or scratch buffer is too small.
+        perror("get_cwd_resolved: failed to get current working directory");
+        // TODO: probably not good to just crash here.
+        exit(1);
+    }
+    char *resolved = realpath(cwd, NULL); // this mallocs for us
+    return resolved;
+}
+
 CmdResult cmd_getpath(char *const argv[]) {
     const char *const name = argv[0];
     if (!STR_EQ(name, "getpath")) {
@@ -119,38 +138,25 @@ CmdResult cmd_change_dir(ShiteShellState *state, char *const argv[]) {
             change_directory(prev_path);
             free(prev_path);
         }
-    } else if (STR_EQ(path, "+")) {
+    } else if (false && STR_EQ(path, "+")) {
         // TODO: go forward in path stack history, this would require some
         // changing of the current approach.
     } else {
-        char *curr_path = NULL;
-        {
-            const char *curr_unresolved_path =
-                getcwd(NULL, 0); // this mallocs for us
-            curr_path =
-                realpath(curr_unresolved_path, NULL); // this mallocs for us
-            shite_free((void **)&curr_unresolved_path);
-        }
-
-        const bool changed_dir = change_directory(path);
-
-        char *new_path = NULL;
-        {
-            const char *new_unresolved_path =
-                getcwd(NULL, 0); // this mallocs for us
-            new_path =
-                realpath(new_unresolved_path, NULL); // this mallocs for us
-            shite_free((void **)&new_unresolved_path);
-        }
-
+        char *curr_path = get_cwd_resolved();
+        const bool successfully_changed_dir = change_directory(path);
+        char *new_path = get_cwd_resolved();
         char *prev_path = shitevec_peek_back(&state->path_stack);
-        if (changed_dir && !STR_EQ(curr_path, new_path) &&
-            (!prev_path || !STR_EQ(prev_path, curr_path))) {
+
+        const bool changed_dir =
+            successfully_changed_dir && !STR_EQ(curr_path, new_path);
+        const bool should_push_to_pathstack =
+            !prev_path || !STR_EQ(prev_path, curr_path);
+
+        if (changed_dir && should_push_to_pathstack) {
             shitevec_push_back(&state->path_stack, curr_path);
         } else {
             shite_free((void **)&curr_path);
         }
-
         shite_free((void **)&new_path);
     }
 
