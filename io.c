@@ -1,3 +1,4 @@
+#include "io.h"
 #include "shared.h"
 #include <assert.h>
 #include <errno.h>
@@ -5,7 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <sys/mman.h>
 #include <sys/stat.h> // for filestystem stats
+#include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 bool directory_exists(const char *dir_path) {
     struct stat dir_stat = {0};
@@ -50,6 +56,80 @@ int count_lines(FILE *file) {
     return counter;
 #undef COUNT_LINES_BUF_SIZE
 }
+
+// returns ~0 on error.
+bool get_filesize_from_file_desc(int fd, size_t *size) {
+    if (fd == -1) {
+      return false;
+    }
+    struct stat s;
+    if (fstat(fd, &s) == -1) {
+      return false;
+    }
+    *size = s.st_size;
+    return true;
+}
+
+bool mmap_file(const char *filepath, MemMap *mm) {
+    if(!filepath)
+      return false;
+
+    int fd = open(filepath, O_RDONLY);
+    if(fd == -1)
+      return false;
+
+    if(!get_filesize_from_file_desc(fd, &mm->size))
+      return false;
+
+    mm->buf = mmap(NULL, mm->size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if(mm->buf == MAP_FAILED)
+      return false;
+
+    return true;
+}
+
+size_t count_lines_buf(const char *buf, size_t buf_size) {
+  // TODO: use strchr instead?
+  size_t count = 0;
+  for(size_t i = 0; i < buf_size; i++)
+    if(buf[i] == '\n')
+      count++;
+  return count;
+}
+
+LineIter lineiter_create(char *str) {
+  LineIter li = {
+    .str = str,
+    .curr_chr = str-1,
+    .done = false,
+  };
+  return li;
+}
+
+bool lineiter_next(LineIter *li, char **line, size_t *line_len) {
+  *line = NULL;
+  *line_len = 0;
+
+  if(li->done)
+    return false;
+
+  // SAFETY: we've checked if we're at the end of the string already
+  (li->curr_chr)++;
+  *line = li->curr_chr;
+  while(true) {
+    if(*li->curr_chr == '\n') {
+      break;
+    } else if(*li->curr_chr == '\0') {
+      li->done = true;
+    } else {
+      li->curr_chr++;
+      (*line_len)++;
+    }
+  }
+
+  return true;
+}
+
 
 /**
  * Reads the lines from a file.
@@ -116,3 +196,37 @@ cleanup_lines:
     shite_free((void **)&lines);
     goto exit;
 }
+
+
+void main() {
+  MemMap mm;
+  if(!mmap_file("io.c", &mm)) {
+    return;
+  }
+
+  printf("mmap ends with \\0?: ");
+  if(mm.buf[mm.size] == '\0') {
+    printf("yes\n");
+  } else {
+    printf("no\n");
+  }
+
+  LineIter li = lineiter_create(mm.buf);
+  char *line = NULL;
+  size_t line_len = 0;
+
+  size_t line_no = 1;
+  while(lineiter_next(&li, &line, &line_len)) {
+    printf("\t");
+    for(int pp = 0; pp < line_len; pp++)
+      printf("%c", line[pp]);
+    printf("\n");
+    // printf("\t\"%s\"\n", line);
+    break;
+    line_no++;
+  }
+
+  return;
+}
+
+
